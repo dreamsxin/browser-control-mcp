@@ -1,5 +1,5 @@
 import type { ProtocolApi } from '../../cdp/generated/protocol-api'
-import type { PageManager } from './pages'
+import type { PageManager } from '../pages'
 
 const LOAD_TIMEOUT_MS = 30_000
 

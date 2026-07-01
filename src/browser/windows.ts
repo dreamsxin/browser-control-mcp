@@ -1,5 +1,5 @@
-import type { WindowInfo } from '../../cdp/generated/domains/browser'
-import type { CdpConnection } from '../../cdp/connection'
+import type { WindowInfo } from '../cdp/generated/domains/browser'
+import type { CdpConnection } from '../cdp/connection'
 import type { BackendMode } from './pages'
 
 export type { WindowInfo }

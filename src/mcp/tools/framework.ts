@@ -9,6 +9,9 @@ import {
 export type ToolInputSchema = ZodObject<ZodRawShape>
 export type ToolOutputSchema = ZodObject<ZodRawShape>
 
+/** Backend mode — must stay in sync with BackendMode in browser/pages.ts */
+export type BackendMode = 'browseros' | 'chrome'
+
 export interface ToolContext {
   session: BrowserSession
   defaultWindowId?: number
@@ -31,6 +34,8 @@ export interface ToolDefinition {
   input: ToolInputSchema
   output?: ToolOutputSchema
   annotations?: ToolAnnotations
+  /** Restricts tool availability to specific backend modes. If omitted, available on all backends. */
+  backend?: BackendMode[]
   handler: (
     args: Record<string, unknown>,
     ctx: ToolContext,
@@ -44,6 +49,7 @@ export function defineTool<S extends ToolInputSchema>(def: {
   input: S
   output?: ToolOutputSchema
   annotations?: ToolAnnotations
+  backend?: BackendMode[]
   handler: (
     args: TypeOf<S>,
     ctx: ToolContext,

@@ -1,4 +1,4 @@
-import type { ProtocolApi } from '../../cdp/generated/protocol-api'
+import type { ProtocolApi } from '../../../cdp/generated/protocol-api'
 import type { AXNode } from '../snapshot/ax-types'
 import type { RefEntry } from '../snapshot/refs'
 import { ROOT_ROLES } from '../snapshot/roles'

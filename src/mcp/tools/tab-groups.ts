@@ -28,6 +28,7 @@ export const tab_groups = defineTool({
   name: 'tab_groups',
   description:
     'Manage tab groups: list groups, group pages, update a group (title/color/collapsed), ungroup pages, or close a group. Page ids come from the tabs tool.',
+  backend: ['browseros'],
   input: z.object({
     action: z
       .enum(['list', 'create', 'update', 'ungroup', 'close'])

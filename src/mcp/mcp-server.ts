@@ -1,4 +1,4 @@
-import type { BrowserSession } from '../../browser/session'
+import type { BrowserSession } from '../browser/session'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp'
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types'
 import { BROWSER_MCP_INSTRUCTIONS } from './mcp-prompt'
@@ -45,6 +45,7 @@ export function createBrowserMcpServer(
       defaultTabGroupId: options.defaultTabGroupId,
     },
     options.registration,
+    options.browserSession.backend,
   )
 
   return server

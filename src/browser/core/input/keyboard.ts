@@ -1,5 +1,5 @@
 import { platform } from 'node:os'
-import type { ProtocolApi } from '../../cdp/generated/protocol-api'
+import type { ProtocolApi } from '../../../cdp/generated/protocol-api'
 
 // Meta (Cmd) on macOS, Control on everything else.
 const PLATFORM_MODIFIER = platform() === 'darwin' ? 4 : 2

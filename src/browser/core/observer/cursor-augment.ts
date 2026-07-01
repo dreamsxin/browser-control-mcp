@@ -1,4 +1,4 @@
-import type { ProtocolApi } from '../../cdp/generated/protocol-api'
+import type { ProtocolApi } from '../../../cdp/generated/protocol-api'
 
 // Finds elements that behave as interactive but carry no ARIA role (cursor:pointer divs, onclick
 // handlers, tabindex, contenteditable) — the SPA pattern the accessibility tree misses. Tags each

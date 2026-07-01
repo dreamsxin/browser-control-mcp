@@ -1,5 +1,5 @@
-import type { ProtocolApi } from '../../cdp/generated/protocol-api'
-import type { CdpConnection, FrameId, SessionId } from '../connection'
+import type { ProtocolApi } from '../../../cdp/generated/protocol-api'
+import type { CdpConnection, FrameId, SessionId } from '../../../cdp/connection'
 
 interface AttachedParams {
   sessionId: SessionId

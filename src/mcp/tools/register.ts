@@ -1,7 +1,7 @@
 import type { BrowserSession } from '../../browser/session'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp'
 import type { ZodRawShape } from 'zod'
-import { executeTool } from './framework'
+import { executeTool, type BackendMode } from './framework'
 import {
   type BrowserOutputFileAccess,
   withBrowserOutputFileAccess,
@@ -117,10 +117,18 @@ export function registerBrowserTools(
   session: BrowserSession,
   defaults: BrowserToolDefaults = {},
   options: BrowserToolRegistrationOptions = {},
+  backend?: BackendMode,
 ): void {
   const register = server.registerTool.bind(server) as unknown as RegisterFn
 
-  for (const tool of BROWSER_TOOLS) {
+  // Filter tools by backend mode: tools without a `backend` field are always
+  // available; tools with a `backend` array are only registered when the
+  // current backend is in that list.
+  const tools = backend
+    ? BROWSER_TOOLS.filter((t) => !t.backend || t.backend.includes(backend))
+    : BROWSER_TOOLS
+
+  for (const tool of tools) {
     register(
       tool.name,
       {
@@ -209,9 +217,10 @@ export function registerBrowserTools(
 
   if (options.shouldLogToolRegistration?.()) {
     options.logger?.info?.('Registered browser MCP tools', {
-      count: BROWSER_TOOLS.length,
-      toolNames: BROWSER_TOOLS.map((t) => t.name),
+      count: tools.length,
+      toolNames: tools.map((t) => t.name),
       source: options.source ?? 'mcp',
+      ...(backend && { backend }),
     })
   }
 }

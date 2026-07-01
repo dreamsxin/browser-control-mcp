@@ -1,6 +1,6 @@
-import type { ProtocolApi } from '../../cdp/generated/protocol-api'
+import type { ProtocolApi } from '../../../cdp/generated/protocol-api'
 import type { Observer } from '../observer/observer'
-import type { PageManager } from '../pages'
+import type { PageManager } from '../../pages'
 import {
   callOnElement,
   focusElement,

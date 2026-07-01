@@ -1,4 +1,4 @@
-import type { ProtocolApi } from '../../cdp/generated/protocol-api'
+import type { ProtocolApi } from '../../../cdp/generated/protocol-api'
 
 export type MouseButton = 'left' | 'middle' | 'right'
 

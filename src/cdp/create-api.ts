@@ -52,26 +52,39 @@ export function createDomainProxy(
   }) as any
 }
 
+/** All CDP domain names (mirrors the generated ProtocolApi type). */
+const CDP_DOMAINS = [
+  'Accessibility', 'Animation', 'Audits', 'Autofill', 'Bookmarks',
+  'BackgroundService', 'BluetoothEmulation', 'Browser', 'CSS', 'CacheStorage',
+  'Cast', 'DOM', 'DOMDebugger', 'DOMSnapshot', 'DOMStorage',
+  'DeviceAccess', 'DeviceOrientation', 'Emulation', 'EventBreakpoints',
+  'Extensions', 'FedCm', 'Fetch', 'FileSystem', 'HeadlessExperimental',
+  'History', 'IO', 'IndexedDB', 'Input', 'Inspector', 'LayerTree',
+  'Log', 'Media', 'Memory', 'Network', 'Overlay', 'PWA', 'Page',
+  'Performance', 'PerformanceTimeline', 'Preload', 'Security',
+  'ServiceWorker', 'SmartCardEmulation', 'Storage', 'SystemInfo',
+  'Target', 'Tethering', 'Tracing', 'WebAudio', 'WebAuthn',
+  'Console', 'Debugger', 'HeapProfiler', 'Profiler', 'Runtime', 'Schema',
+] as const
+
 /**
- * Build a complete ProtocolApi from a list of CDP domain names.
+ * Build a complete ProtocolApi from raw send/on functions.
  *
- * @param domains - CDP domain names (e.g. ["Page", "Browser", "Runtime", ...])
+ * Every CDP domain is represented as a Proxy that translates property
+ * accesses into CDP commands (or event subscriptions via `.on()`).
+ *
  * @param send - Raw CDP command sender
  * @param on - Raw CDP event subscriber
  * @returns A type-safe dynamic API object
  *
  * @example
- *   const api = createProtocolApi(["Page", "Runtime", "Browser"], send, on)
+ *   const api = createProtocolApi(send, on)
  *   await api.Page.navigate({ url: "..." })
  *   api.Page.on("frameNavigated", (params) => console.log(params))
  */
-export function createProtocolApi(
-  domains: string[],
-  send: RawSend,
-  on: RawOn,
-): ProtocolApi {
+export function createProtocolApi(send: RawSend, on: RawOn): ProtocolApi {
   const api: Record<string, any> = Object.create(null)
-  for (const domain of domains) {
+  for (const domain of CDP_DOMAINS) {
     api[domain] = createDomainProxy(domain, send, on)
   }
   return api as ProtocolApi
@@ -84,10 +97,6 @@ export function createProtocolApi(
  * When a session is attached via Target.attachToTarget, all commands
  * from that session go through the session's transport, not the main one.
  */
-export function createSessionApi(
-  domains: string[],
-  send: RawSend,
-  on: RawOn,
-): ProtocolApi {
-  return createProtocolApi(domains, send, on)
+export function createSessionApi(send: RawSend, on: RawOn): ProtocolApi {
+  return createProtocolApi(send, on)
 }

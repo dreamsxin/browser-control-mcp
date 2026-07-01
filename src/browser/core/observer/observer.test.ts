@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { ProtocolApi } from '../../../cdp/generated/protocol-api'
-import type { PageManager } from '../pages'
+import type { PageManager } from '../../pages'
 import type { AXNode } from '../snapshot/ax-types'
 import type { FrameRegistry } from './frames'
 import { Observer } from './observer'

@@ -38,6 +38,8 @@ export interface ServerConfig {
   cdpRetryDelay: number
   /** HTTP fetch timeout in ms (default: 5000) */
   cdpFetchTimeout: number
+  /** Enable verbose debug logging (default: false) */
+  debug: boolean
 }
 
 export const DEFAULT_CONFIG: ServerConfig = {
@@ -52,6 +54,7 @@ export const DEFAULT_CONFIG: ServerConfig = {
   cdpMaxRetries: 10,
   cdpRetryDelay: 1000,
   cdpFetchTimeout: 5000,
+  debug: false,
 }
 
 /**
@@ -71,6 +74,7 @@ export function configFromArgs(args: Record<string, unknown>): Partial<ServerCon
   if (args['version']) config.serverVersion = String(args['version'])
   if (args['window-id']) config.defaultWindowId = Number(args['window-id'])
   if (args['tab-group-id']) config.defaultTabGroupId = String(args['tab-group-id'])
+  if (args['debug']) config.debug = true
 
   return config
 }
@@ -90,6 +94,7 @@ export function configFromEnv(): Partial<ServerConfig> {
   if (env.BROWSEROS_MCP_AUTO_LAUNCH === '1') config.autoLaunch = true
   if (env.BROWSEROS_MCP_SERVER_NAME) config.serverName = env.BROWSEROS_MCP_SERVER_NAME
   if (env.BROWSEROS_MCP_SERVER_VERSION) config.serverVersion = env.BROWSEROS_MCP_SERVER_VERSION
+  if (env.BROWSEROS_MCP_DEBUG === '1' || env.BROWSEROS_MCP_DEBUG === 'true') config.debug = true
 
   return config
 }

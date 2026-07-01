@@ -1,4 +1,4 @@
-import type { LoggerInterface } from '../../shared/types/logger'
+import type { LoggerInterface } from '../shared/types/logger'
 
 export const logger: LoggerInterface = {
   debug(message, meta) {

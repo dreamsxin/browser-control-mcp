@@ -1,4 +1,4 @@
-import type { ProtocolApi } from '../../cdp/generated/protocol-api'
+import type { ProtocolApi } from '../../../cdp/generated/protocol-api'
 import type { AXNode } from '../snapshot/ax-types'
 
 /** Fetches a session's full accessibility tree (main frame). Frame stitching layers on later. */

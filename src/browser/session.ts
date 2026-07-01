@@ -1,14 +1,14 @@
-import type { CdpConnection } from '../../cdp/connection'
-import { Input } from './input/input'
-import { Navigation } from './navigation'
-import { FrameRegistry } from './observer/frames'
-import { Observer } from './observer/observer'
+import type { CdpConnection } from '../cdp/connection'
+import { Input } from './core/input/input'
+import { Navigation } from './core/navigation'
+import { FrameRegistry } from './core/observer/frames'
+import { Observer } from './core/observer/observer'
 import { PageManager, type PageManagerHooks, type BackendMode } from './pages'
 import {
   captureScreenshotWithAnnotations,
   type ScreenshotCaptureOptions,
   type ScreenshotCaptureResult,
-} from './screenshot'
+} from './core/screenshot'
 import { WindowManager } from './windows'
 
 export interface BrowserSessionHooks extends PageManagerHooks {}

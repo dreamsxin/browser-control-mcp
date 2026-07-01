@@ -1,10 +1,10 @@
-import type { ProtocolApi } from '../../cdp/generated/protocol-api'
-import { logger } from '../logger'
+import type { ProtocolApi } from '../cdp/generated/protocol-api'
+import { logger } from './logger'
 import {
   type CdpConnection,
   EXCLUDED_URL_PREFIXES,
   type SessionId,
-} from '../../cdp/connection'
+} from '../cdp/connection'
 
 /**
  * Backend mode determines which CDP domains are used for tab/page management.

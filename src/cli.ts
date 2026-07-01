@@ -20,6 +20,7 @@ Options:
   --version <ver>        MCP server version (default: 0.1.0)
   --window-id <id>       Default window ID for new pages (BrowserOS mode only)
   --tab-group-id <id>    Default tab group ID for new pages (BrowserOS mode only)
+  --debug                Enable verbose debug logging
   --help                 Show this help
 
 Environment variables:
@@ -30,6 +31,7 @@ Environment variables:
   BROWSEROS_MCP_CHROME_PATH  Same as --chrome-path
   BROWSEROS_MCP_AUTO_LAUNCH  Set to '1' for --auto-launch
   BROWSEROS_MCP_SERVER_NAME  Same as --name
+  BROWSEROS_MCP_DEBUG       Set to '1' for --debug
 
 Examples:
   # Connect to standard Chrome (started separately)
@@ -44,6 +46,9 @@ Examples:
 
   # Use a specific Chrome path
   browseros-mcp --auto-launch --chrome-path /usr/bin/chromium
+
+  # Enable debug logging
+  browseros-mcp --debug
 `
 
 async function main(): Promise<void> {
@@ -60,6 +65,7 @@ async function main(): Promise<void> {
       'version': { type: 'string' },
       'window-id': { type: 'string' },
       'tab-group-id': { type: 'string' },
+      'debug': { type: 'boolean', default: false },
       'help': { type: 'boolean', default: false },
     },
     strict: false,

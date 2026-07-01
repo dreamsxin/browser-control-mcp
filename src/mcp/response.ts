@@ -1,6 +1,6 @@
-import type { BrowserSession } from '../../browser/session'
-import type { SnapshotDiff } from '../../browser/core/snapshot/diff'
-import { TIMEOUTS } from '../../shared/constants/timeouts'
+import type { BrowserSession } from '../browser/session'
+import type { SnapshotDiff } from '../browser/core/snapshot/diff'
+import { TIMEOUTS } from '../shared/constants/timeouts'
 import { formatDiffResult } from './tools/diff-format'
 import { formatSnapshotResult } from './tools/snapshot-format'
 
