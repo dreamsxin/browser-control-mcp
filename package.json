@@ -1,0 +1,56 @@
+{
+  "name": "browseros-mcp",
+  "version": "0.1.0",
+  "description": "Standalone browser automation MCP server — supports both BrowserOS and standard Chrome",
+  "keywords": [
+    "mcp",
+    "browser-automation",
+    "cdp",
+    "chrome-devtools-protocol",
+    "browseros",
+    "chrome",
+    "accessibility-tree",
+    "ai-agent"
+  ],
+  "license": "MIT",
+  "author": "",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "browseros-mcp": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "tsx src/cli.ts",
+    "dev": "tsx watch src/cli.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@hono/mcp": "^0.1.0",
+    "hono": "^4.6.0",
+    "@hono/node-server": "^1.13.0",
+    "ws": "^8.18.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

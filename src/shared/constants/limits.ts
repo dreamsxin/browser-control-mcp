@@ -1,0 +1,14 @@
+export const TOOL_LIMITS = {
+  INLINE_PAGE_CONTENT_MAX_CHARS: 5_000,
+  FILESYSTEM_READ_MAX_LINES: 500,
+  FILESYSTEM_READ_MAX_CHARS: 15_000,
+} as const
+
+export const CDP_LIMITS = {
+  CONNECT_MAX_RETRIES: 3,
+  RECONNECT_MAX_RETRIES: 3,
+} as const
+
+export const PAGINATION = {
+  DEFAULT_PAGE_SIZE: 20,
+} as const
