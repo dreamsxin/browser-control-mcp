@@ -13,6 +13,8 @@ that gap by combining Chrome extension APIs with the existing CDP session.
 - Use a Chrome MV3 extension to provide browser UI state:
   `chrome.tabs`, `chrome.windows`, `chrome.tabGroups`, and
   `chrome.debugger.getTargets`.
+- Use the extension command channel for profile data that Chrome CDP does not
+  expose, such as `chrome.bookmarks` and `chrome.history`.
 - Preserve the current MCP tool contract so `tabs`, `windows`, and
   `tab_groups` behave like the BrowserOS backend when the bridge is connected.
 - Degrade cleanly in plain Chrome. If the bridge is not connected, tools that
@@ -23,6 +25,7 @@ that gap by combining Chrome extension APIs with the existing CDP session.
 ```text
 Chrome Extension
   chrome.tabs / chrome.windows / chrome.tabGroups
+  chrome.bookmarks / chrome.history
   chrome.debugger.getTargets()
         |
         | full snapshots + debounced lifecycle updates + command polling
@@ -168,9 +171,11 @@ Long polling remains as a compatibility fallback:
 
 Supported commands:
 
-- tabs: create, close, activate, move
+- tabs: create, close, activate, move, duplicate, pin/unpin
 - windows: create, close, focus
 - tab groups: create/add, update, ungroup, close
+- bookmarks: list/search/create/update/move/delete
+- history: recent/search/delete URL/delete range
 
 The bridge should refresh state after every command result, whether the command
 succeeded or failed.

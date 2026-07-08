@@ -1,9 +1,11 @@
 import { act } from './act'
+import { bookmarks } from './bookmarks'
 import { diff } from './diff'
 import { download } from './download'
 import { evaluate } from './evaluate'
 import type { ToolDefinition } from './framework'
 import { grep } from './grep'
+import { history } from './history'
 import { navigate } from './navigate'
 import { pdf } from './pdf'
 import { read } from './read'
@@ -18,6 +20,8 @@ import { windows } from './windows'
 
 export const BROWSER_TOOLS: readonly ToolDefinition[] = [
   tabs,
+  bookmarks,
+  history,
   tab_groups,
   navigate,
   snapshot,

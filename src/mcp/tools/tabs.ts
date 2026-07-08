@@ -2,12 +2,24 @@ import { z } from 'zod'
 import { defineTool, errorResult, textResult } from './framework'
 import { pageInfoSchema, pageListEntrySchema } from './output-schemas'
 
+const ACTIONS = [
+  'list',
+  'active',
+  'new',
+  'close',
+  'activate',
+  'move',
+  'duplicate',
+  'pin',
+  'unpin',
+] as const
+
 export const tabs = defineTool({
   name: 'tabs',
   description:
-    'Manage browser tabs: list open pages (with their page ids), show the active page, open a new page, or close one. Use the returned page id with snapshot/act/navigate.',
+    'Manage browser tabs: list open pages, show the active page, open, close, activate, move, duplicate, pin, or unpin a page. Use the returned page id with snapshot/act/navigate.',
   input: z.object({
-    action: z.enum(['list', 'active', 'new', 'close']).default('list'),
+    action: z.enum(ACTIONS).default('list'),
     url: z
       .string()
       .optional()
@@ -20,10 +32,24 @@ export const tabs = defineTool({
       .boolean()
       .default(false)
       .describe('Create in a hidden window for action="new".'),
-    page: z.number().int().optional().describe('Page id for action="close".'),
+    page: z
+      .number()
+      .int()
+      .optional()
+      .describe('Page id for close, activate, move, duplicate, pin, or unpin.'),
+    windowId: z
+      .number()
+      .int()
+      .optional()
+      .describe('Destination window id for action="move".'),
+    index: z
+      .number()
+      .int()
+      .optional()
+      .describe('Destination tab index for action="move". Omit to move to the end.'),
   }),
   output: z.object({
-    action: z.enum(['list', 'active', 'new', 'close']),
+    action: z.enum(ACTIONS),
     pages: z.array(pageListEntrySchema).optional(),
     page: z.union([pageInfoSchema, z.number().int()]).optional(),
   }),
@@ -49,21 +75,7 @@ export const tabs = defineTool({
         }
         return textResult(`Active page: ${formatPageLine(page)}`, {
           action: 'active',
-          page: {
-            page: page.pageId,
-            targetId: page.targetId,
-            tabId: page.tabId,
-            url: page.url,
-            title: page.title,
-            isActive: page.isActive,
-            isLoading: page.isLoading,
-            loadProgress: page.loadProgress,
-            isPinned: page.isPinned,
-            isHidden: page.isHidden,
-            ...(page.windowId !== undefined && { windowId: page.windowId }),
-            ...(page.index !== undefined && { index: page.index }),
-            ...(page.groupId !== undefined && { groupId: page.groupId }),
-          },
+          page: structuredPage(page),
         })
       }
       case 'new': {
@@ -88,6 +100,59 @@ export const tabs = defineTool({
           page: args.page,
         })
       }
+      case 'activate': {
+        if (args.page === undefined) {
+          return errorResult('tabs activate: page is required.')
+        }
+        const page = await ctx.session.pages.activate(args.page)
+        return textResult(`activated page ${page.pageId}: ${formatPageLine(page)}`, {
+          action: 'activate',
+          page: structuredPage(page),
+        })
+      }
+      case 'move': {
+        if (args.page === undefined) {
+          return errorResult('tabs move: page is required.')
+        }
+        const page = await ctx.session.pages.move(args.page, {
+          ...(args.windowId !== undefined && { windowId: args.windowId }),
+          ...(args.index !== undefined && { index: args.index }),
+        })
+        return textResult(`moved page ${page.pageId}: ${formatPageLine(page)}`, {
+          action: 'move',
+          page: structuredPage(page),
+        })
+      }
+      case 'duplicate': {
+        if (args.page === undefined) {
+          return errorResult('tabs duplicate: page is required.')
+        }
+        const page = await ctx.session.pages.duplicate(args.page)
+        return textResult(`duplicated page ${args.page} as page ${page.pageId}: ${formatPageLine(page)}`, {
+          action: 'duplicate',
+          page: structuredPage(page),
+        })
+      }
+      case 'pin': {
+        if (args.page === undefined) {
+          return errorResult('tabs pin: page is required.')
+        }
+        const page = await ctx.session.pages.setPinned(args.page, true)
+        return textResult(`pinned page ${page.pageId}: ${formatPageLine(page)}`, {
+          action: 'pin',
+          page: structuredPage(page),
+        })
+      }
+      case 'unpin': {
+        if (args.page === undefined) {
+          return errorResult('tabs unpin: page is required.')
+        }
+        const page = await ctx.session.pages.setPinned(args.page, false)
+        return textResult(`unpinned page ${page.pageId}: ${formatPageLine(page)}`, {
+          action: 'unpin',
+          page: structuredPage(page),
+        })
+      }
       default:
         return errorResult('tabs: unsupported action.')
     }
@@ -96,4 +161,38 @@ export const tabs = defineTool({
 
 function formatPageLine(page: { pageId: number; url: string; title?: string }) {
   return `[${page.pageId}] ${page.url}${page.title ? ` (${page.title})` : ''}`
+}
+
+function structuredPage(page: {
+  pageId: number
+  targetId: string
+  tabId: number
+  url: string
+  title: string
+  isActive: boolean
+  isLoading: boolean
+  loadProgress: number
+  isPinned: boolean
+  isHidden: boolean
+  windowId?: number
+  index?: number
+  groupId?: string
+  browserContextId?: string
+}) {
+  return {
+    page: page.pageId,
+    targetId: page.targetId,
+    tabId: page.tabId,
+    url: page.url,
+    title: page.title,
+    isActive: page.isActive,
+    isLoading: page.isLoading,
+    loadProgress: page.loadProgress,
+    isPinned: page.isPinned,
+    isHidden: page.isHidden,
+    ...(page.windowId !== undefined && { windowId: page.windowId }),
+    ...(page.index !== undefined && { index: page.index }),
+    ...(page.groupId !== undefined && { groupId: page.groupId }),
+    ...(page.browserContextId !== undefined && { browserContextId: page.browserContextId }),
+  }
 }

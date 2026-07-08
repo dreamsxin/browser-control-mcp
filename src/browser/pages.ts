@@ -476,6 +476,27 @@ export class PageManager {
     return info
   }
 
+  async activate(pageId: number): Promise<PageInfo> {
+    await this.ensureConnected()
+    const info = (await this.refresh(pageId)) ?? this.requireInfo(pageId)
+
+    if (this.backend === 'browseros') {
+      await this.cdp.Browser.activateTab({ tabId: info.tabId })
+      await this.list()
+      return this.markActive(pageId, this.findByTab(info.tabId) ?? info)
+    }
+
+    if (this.bridge?.isConnected()) {
+      const tab = await this.bridge.activateTab(info.tabId)
+      return this.markActive(pageId, this.tabInfoFromBridgeTab(tab, info.targetId, info.url))
+    }
+
+    try {
+      await this.cdp.Target.activateTarget({ targetId: info.targetId })
+    } catch { /* some Chrome versions reject this for browser-level targets */ }
+    return this.markActive(pageId, info)
+  }
+
   async move(
     pageId: number,
     opts?: { windowId?: number; index?: number },
@@ -496,6 +517,41 @@ export class PageManager {
       throw new Error(bridgeInstallMessage())
     }
     const tab = await this.bridge.moveTab(info.tabId, opts)
+    return this.updateFromTab(pageId, this.tabInfoFromBridgeTab(tab, info.targetId, info.url))
+  }
+
+  async duplicate(pageId: number): Promise<PageInfo> {
+    await this.ensureConnected()
+    const info = (await this.refresh(pageId)) ?? this.requireInfo(pageId)
+
+    if (this.backend === 'browseros') {
+      const result = await this.cdp.Browser.duplicateTab({ tabId: info.tabId })
+      return this.upsertFromTab(result.tab as TabInfo)
+    }
+
+    if (!this.bridge?.isConnected()) {
+      throw new Error(bridgeInstallMessage())
+    }
+    const tab = await this.bridge.duplicateTab(info.tabId)
+    if (!tab.targetId) throw new Error('Extension did not report targetId for duplicated tab.')
+    return this.upsertFromTab(this.tabInfoFromBridgeTab(tab, tab.targetId, tab.url ?? info.url))
+  }
+
+  async setPinned(pageId: number, pinned: boolean): Promise<PageInfo> {
+    await this.ensureConnected()
+    const info = (await this.refresh(pageId)) ?? this.requireInfo(pageId)
+
+    if (this.backend === 'browseros') {
+      const result = pinned
+        ? await this.cdp.Browser.pinTab({ tabId: info.tabId })
+        : await this.cdp.Browser.unpinTab({ tabId: info.tabId })
+      return this.updateFromTab(pageId, result.tab as TabInfo)
+    }
+
+    if (!this.bridge?.isConnected()) {
+      throw new Error(bridgeInstallMessage())
+    }
+    const tab = await this.bridge.pinTab(info.tabId, pinned)
     return this.updateFromTab(pageId, this.tabInfoFromBridgeTab(tab, info.targetId, info.url))
   }
 
@@ -583,6 +639,32 @@ export class PageManager {
   private updateFromTab(pageId: number, tab: TabInfo): PageInfo {
     const info = this.requireInfo(pageId)
     const updated: PageInfo = { ...info, ...tab, windowId: tab.windowId ?? info.windowId }
+    this.pages.set(pageId, updated)
+    return updated
+  }
+
+  private upsertFromTab(tab: TabInfo): PageInfo {
+    const existing = this.findByTarget(tab.targetId) ?? this.findByTab(tab.tabId)
+    if (existing) return this.updateFromTab(existing.pageId, tab)
+    const pageId = this.nextPageId++
+    const page: PageInfo = { pageId, ...tab }
+    this.pages.set(pageId, page)
+    return page
+  }
+
+  private markActive(pageId: number, tab: TabInfo): PageInfo {
+    const existing = this.requireInfo(pageId)
+    const updated: PageInfo = {
+      ...existing,
+      ...tab,
+      isActive: true,
+      windowId: tab.windowId ?? existing.windowId,
+    }
+    for (const [otherPageId, other] of this.pages) {
+      if (otherPageId !== pageId && other.windowId === updated.windowId) {
+        this.pages.set(otherPageId, { ...other, isActive: false })
+      }
+    }
     this.pages.set(pageId, updated)
     return updated
   }

@@ -12,6 +12,8 @@ import {
 } from './core/screenshot'
 import { WindowManager } from './windows'
 import { TabGroupManager } from './tab-groups'
+import { BookmarkManager } from './bookmarks'
+import { HistoryManager } from './history'
 
 export interface BrowserSessionHooks extends PageManagerHooks {}
 
@@ -27,6 +29,8 @@ export class BrowserSession {
   readonly pages: PageManager
   readonly windows: WindowManager
   readonly tabGroups: TabGroupManager
+  readonly bookmarks: BookmarkManager
+  readonly history: HistoryManager
   private readonly frames: FrameRegistry
   private readonly observers = new Map<number, Observer>()
   readonly backend: BackendMode
@@ -40,6 +44,8 @@ export class BrowserSession {
     this.frames = new FrameRegistry(connection)
     this.windows = new WindowManager(connection, backend, chromeExtensionBridge)
     this.tabGroups = new TabGroupManager(connection, backend, chromeExtensionBridge)
+    this.bookmarks = new BookmarkManager(connection, backend, chromeExtensionBridge)
+    this.history = new HistoryManager(connection, backend, chromeExtensionBridge)
     this.pages = new PageManager(
       connection,
       {

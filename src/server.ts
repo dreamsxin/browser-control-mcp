@@ -191,6 +191,28 @@ export async function createHttpServer(config: ServerConfig): Promise<void> {
     return response
   })
 
+  // ── Stateless Streamable HTTP transport (/mcp/stateless) ─────────────
+  // Mirrors BrowserOS's newer per-request transport shape. This avoids
+  // sharing MCP transport state across requests while preserving /mcp for
+  // clients that expect session IDs.
+  app.all('/mcp/stateless', async (c) => {
+    dbg(`[streamable-http:stateless] ${c.req.method} /mcp/stateless`)
+
+    const transport = new StreamableHTTPTransport({
+      sessionIdGenerator: undefined,
+      enableJsonResponse: true,
+    })
+    const server = createMcpServer()
+
+    try {
+      await server.connect(transport)
+      return await transport.handleRequest(c)
+    } finally {
+      await transport.close()
+      await server.close()
+    }
+  })
+
   // ── Legacy SSE transport (/sse + /messages) ──────────────────────────
   // The MCP Inspector's "SSE" mode uses this transport.
   // Flow: GET /sse opens stream → POST /messages?sessionId=xxx sends messages.
@@ -267,6 +289,7 @@ export async function createHttpServer(config: ServerConfig): Promise<void> {
   const nodeServer = serve({ fetch: app.fetch, port: config.mcpPort }, (info) => {
     console.error(`[browser-control-mcp] MCP server listening on http://localhost:${info.port}`)
     console.error(`  Streamable HTTP:  http://localhost:${info.port}/mcp`)
+    console.error(`  Stateless HTTP:   http://localhost:${info.port}/mcp/stateless`)
     console.error(`  SSE:              http://localhost:${info.port}/sse`)
     console.error(`  Extension WS:     ws://localhost:${info.port}/extension/ws`)
     console.error(`  Health check:     http://localhost:${info.port}/health`)

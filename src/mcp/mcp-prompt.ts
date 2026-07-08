@@ -2,6 +2,7 @@ export const BROWSER_MCP_INSTRUCTIONS = `Browser Control MCP browser automation.
 
 Core loop:
 - Use tabs action="list" first when you need a page id; use tabs action="active" when the user refers to the current page.
+- Use tabs action="activate" when the user asks to switch focus to a specific page. Use move, duplicate, pin, and unpin to organize the current browser's tab strip.
 - Use navigate for url/back/forward/reload. Navigation returns a fresh snapshot because old refs are invalidated.
 - Use snapshot before element-level interaction. It returns an Accessibility Tree with refs like [ref=e12].
 - Use refs with act for click, fill, hover, focus, check, uncheck, select, scroll, and drag.
@@ -12,6 +13,7 @@ Choose the lightest inspection tool:
 - Use read for article/page content as markdown, text, or links.
 - Use screenshot for visual state; use annotate=true when refs need to be matched to pixels.
 - Use pdf to archive/print the current page.
+- Use bookmarks to save, find, organize, or open saved pages. Use history to find or reopen pages from the current browser profile.
 
 Use advanced tools carefully:
 - Use evaluate for small page-context JavaScript reads.

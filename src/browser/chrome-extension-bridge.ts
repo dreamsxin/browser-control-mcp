@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { Bounds, WindowInfo, WindowType } from '../cdp/generated/domains/browser'
+import type { BookmarkNode } from '../cdp/generated/domains/bookmarks'
+import type { HistoryEntry } from '../cdp/generated/domains/history'
 import type { TabGroup } from './tab-groups'
 
 export interface BridgeTab {
@@ -251,8 +253,12 @@ export class ChromeExtensionBridge {
     await this.enqueueCommand('tabs.close', { tabId })
   }
 
-  async activateTab(tabId: number): Promise<void> {
+  async activateTab(tabId: number): Promise<BridgeTab> {
     await this.enqueueCommand('tabs.activate', { tabId })
+    await delay(100)
+    const tab = this.tabsById.get(tabId)
+    if (!tab) throw new Error(`Extension did not report activated tab ${tabId}.`)
+    return tab
   }
 
   async moveTab(tabId: number, opts?: { windowId?: number; index?: number }): Promise<BridgeTab> {
@@ -264,6 +270,22 @@ export class ChromeExtensionBridge {
     await delay(100)
     const tab = this.tabsById.get(tabId)
     if (!tab) throw new Error(`Extension did not report moved tab ${tabId}.`)
+    return tab
+  }
+
+  async duplicateTab(tabId: number): Promise<BridgeTab> {
+    const result = await this.enqueueCommand('tabs.duplicate', { tabId })
+    const duplicateTabId = this.extractTabId(result)
+    const tab = duplicateTabId === undefined ? undefined : await this.waitForTab(duplicateTabId, true)
+    if (!tab) throw new Error(`Extension did not report duplicated tab ${tabId}.`)
+    return tab
+  }
+
+  async pinTab(tabId: number, pinned: boolean): Promise<BridgeTab> {
+    await this.enqueueCommand('tabs.pin', { tabId, pinned })
+    await delay(100)
+    const tab = this.tabsById.get(tabId)
+    if (!tab) throw new Error(`Extension did not report pinned state for tab ${tabId}.`)
     return tab
   }
 
@@ -343,6 +365,78 @@ export class ChromeExtensionBridge {
     const groupId = this.parseGroupId(groupIdText)
     const tabIds = this.groupsById.get(groupId)?.tabIds ?? this.tabsForGroup(groupId).map((tab) => tab.tabId)
     await this.enqueueCommand('tabGroups.close', { groupId, tabIds })
+  }
+
+  async listBookmarks(folderId?: string): Promise<BookmarkNode[]> {
+    const result = await this.enqueueCommand('bookmarks.list', {
+      ...(folderId !== undefined && { folderId }),
+    })
+    return readArrayResult<BookmarkNode>(result, 'nodes')
+  }
+
+  async searchBookmarks(query: string, maxResults?: number): Promise<BookmarkNode[]> {
+    const result = await this.enqueueCommand('bookmarks.search', {
+      query,
+      ...(maxResults !== undefined && { maxResults }),
+    })
+    return readArrayResult<BookmarkNode>(result, 'results')
+  }
+
+  async createBookmark(params: {
+    title: string
+    url?: string
+    parentId?: string
+    index?: number
+  }): Promise<BookmarkNode> {
+    const result = await this.enqueueCommand('bookmarks.create', params)
+    return readObjectResult<BookmarkNode>(result, 'node')
+  }
+
+  async updateBookmark(params: {
+    id: string
+    title?: string
+    url?: string
+  }): Promise<BookmarkNode> {
+    const result = await this.enqueueCommand('bookmarks.update', params)
+    return readObjectResult<BookmarkNode>(result, 'node')
+  }
+
+  async moveBookmark(params: {
+    id: string
+    parentId?: string
+    index?: number
+  }): Promise<BookmarkNode> {
+    const result = await this.enqueueCommand('bookmarks.move', params)
+    return readObjectResult<BookmarkNode>(result, 'node')
+  }
+
+  async removeBookmark(id: string): Promise<void> {
+    await this.enqueueCommand('bookmarks.remove', { id })
+  }
+
+  async searchHistory(params: {
+    query: string
+    maxResults?: number
+    startTime?: number
+    endTime?: number
+  }): Promise<HistoryEntry[]> {
+    const result = await this.enqueueCommand('history.search', params)
+    return readArrayResult<HistoryEntry>(result, 'entries')
+  }
+
+  async getRecentHistory(maxResults?: number): Promise<HistoryEntry[]> {
+    const result = await this.enqueueCommand('history.recent', {
+      ...(maxResults !== undefined && { maxResults }),
+    })
+    return readArrayResult<HistoryEntry>(result, 'entries')
+  }
+
+  async deleteHistoryUrl(url: string): Promise<void> {
+    await this.enqueueCommand('history.deleteUrl', { url })
+  }
+
+  async deleteHistoryRange(startTime: number, endTime: number): Promise<void> {
+    await this.enqueueCommand('history.deleteRange', { startTime, endTime })
   }
 
   private touch(browserId?: string): void {
@@ -466,6 +560,16 @@ export class ChromeExtensionBridge {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+function readArrayResult<T>(value: unknown, key: string): T[] {
+  if (isRecord(value) && Array.isArray(value[key])) return value[key] as T[]
+  return []
+}
+
+function readObjectResult<T>(value: unknown, key: string): T {
+  if (isRecord(value) && isRecord(value[key])) return value[key] as T
+  throw new Error(`Extension command did not return ${key}.`)
 }
 
 export function bridgeInstallMessage(): string {

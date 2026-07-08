@@ -10,7 +10,7 @@ const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor as new (
 const DESCRIPTION = `Run JavaScript against the \`browser\` SDK in the server runtime for multi-step flows and data extraction that would otherwise take many tool calls. \`console.log\` is captured; \`return\` a value to read it back; exceptions come back as a result, not a thrown error.
 
 Available as \`browser\`:
-  browser.pages.list() / newPage(url) / close(pageId) / getInfo(pageId)
+  browser.pages.list() / newPage(url) / close(pageId) / activate(pageId) / move(pageId, opts) / duplicate(pageId) / setPinned(pageId, pinned) / getInfo(pageId)
   browser.observe(pageId).snapshot()  -> { text, refs }
   browser.observe(pageId).diff()      -> { text, added, removed, changed }
   browser.observe(pageId).resolveRef(ref)
