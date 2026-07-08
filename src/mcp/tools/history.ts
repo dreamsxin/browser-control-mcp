@@ -16,14 +16,14 @@ const historyEntrySchema = z.object({
 export const history = defineTool({
   name: 'history',
   description:
-    'Search, list recent, open, or delete browser history entries for the current browser profile.',
+    'Search, list recent, open, or delete browser history entries for the current browser profile. Use delete actions only when the user explicitly asks to remove history.',
   input: z.object({
     action: z.enum(ACTIONS).default('recent'),
     query: z.string().optional().describe('History search query. Use an empty string only when intentionally listing broadly.'),
-    maxResults: z.number().int().positive().optional(),
+    maxResults: z.number().int().positive().optional().describe('Maximum results for action="recent" or action="search".'),
     startTime: z.number().optional().describe('Start time in milliseconds since Unix epoch.'),
     endTime: z.number().optional().describe('End time in milliseconds since Unix epoch.'),
-    url: z.string().optional().describe('URL for action="open" or action="delete_url".'),
+    url: z.string().optional().describe('URL for action="open" or action="delete_url"; use a URL returned by recent/search.'),
     background: z.boolean().default(true).describe('Open history URL in a background tab for action="open".'),
   }),
   output: z.object({

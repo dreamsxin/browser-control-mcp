@@ -17,7 +17,7 @@ const ACTIONS = [
 export const tabs = defineTool({
   name: 'tabs',
   description:
-    'Manage browser tabs: list open pages, show the active page, open, close, activate, move, duplicate, pin, or unpin a page. Use the returned page id with snapshot/act/navigate.',
+    'Manage browser tabs: list open pages, get the current active page, open, close, focus, move, duplicate, pin, or unpin a page. Use the returned page id with snapshot/act/navigate.',
   input: z.object({
     action: z.enum(ACTIONS).default('list'),
     url: z
@@ -36,7 +36,7 @@ export const tabs = defineTool({
       .number()
       .int()
       .optional()
-      .describe('Page id for close, activate, move, duplicate, pin, or unpin.'),
+      .describe('Page id for close, activate, move, duplicate, pin, or unpin. action="active" does not take a page id.'),
     windowId: z
       .number()
       .int()

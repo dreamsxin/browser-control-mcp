@@ -26,12 +26,12 @@ const bookmarkNodeSchema = z.object({
 export const bookmarks = defineTool({
   name: 'bookmarks',
   description:
-    'Manage browser bookmarks: list, search, create folders or URL bookmarks, update, move, delete, or open a bookmark.',
+    'Manage browser bookmarks in the current profile: list, search, create folders or URL bookmarks, update, move, delete, or open a bookmark. Delete can remove an entire bookmark folder subtree.',
   input: z.object({
     action: z.enum(ACTIONS).default('list'),
     folderId: z.string().optional().describe('Folder id for action="list".'),
     query: z.string().optional().describe('Search query for action="search".'),
-    maxResults: z.number().int().positive().optional(),
+    maxResults: z.number().int().positive().optional().describe('Maximum results for action="search".'),
     id: z.string().optional().describe('Bookmark id for update, move, delete, or open.'),
     title: z.string().optional().describe('Bookmark or folder title.'),
     url: z.string().optional().describe('URL for create or update. Omit url to create a folder.'),
