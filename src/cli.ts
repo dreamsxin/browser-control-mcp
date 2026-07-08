@@ -2,11 +2,11 @@ import { parseArgs } from 'node:util'
 import { createHttpServer } from './server.js'
 import { resolveConfig } from './config.js'
 
-const HELP_TEXT = `browseros-mcp — Standalone Browser Automation MCP Server
+const HELP_TEXT = `browser-control-mcp — Standalone Browser Control MCP Server
 
 Supports both BrowserOS and standard Chrome via CDP.
 
-Usage: browseros-mcp [options]
+Usage: browser-control-mcp [options]
 
 Options:
   --cdp-port <port>      Chrome CDP port (default: 9222)
@@ -14,9 +14,13 @@ Options:
   --mcp-port <port>      MCP HTTP server port (default: 3000)
   --backend <mode>       Backend mode: 'browseros', 'chrome', or 'auto' (default: auto)
   --chrome-path <path>   Path to Chrome executable (for auto-launch)
+  --chrome-user-data-dir <path>
+                         Chrome profile directory for auto-launch
+  --chrome-extension <path>
+                         Unpacked Chrome extension directory for auto-launch
   --auto-launch          Automatically start Chrome with --remote-debugging-port
-  --name <name>          MCP server name (default: browseros-mcp)
-  --title <title>        MCP server title (default: BrowserOS MCP)
+  --name <name>          MCP server name (default: browser-control-mcp)
+  --title <title>        MCP server title (default: Browser Control MCP)
   --version <ver>        MCP server version (default: 0.1.0)
   --window-id <id>       Default window ID for new pages (BrowserOS mode only)
   --tab-group-id <id>    Default tab group ID for new pages (BrowserOS mode only)
@@ -24,31 +28,38 @@ Options:
   --help                 Show this help
 
 Environment variables:
-  BROWSEROS_MCP_CDP_PORT     Same as --cdp-port
-  BROWSEROS_MCP_CDP_HOST     Same as --cdp-host
-  BROWSEROS_MCP_MCP_PORT     Same as --mcp-port
-  BROWSEROS_MCP_BACKEND      Same as --backend
-  BROWSEROS_MCP_CHROME_PATH  Same as --chrome-path
-  BROWSEROS_MCP_AUTO_LAUNCH  Set to '1' for --auto-launch
-  BROWSEROS_MCP_SERVER_NAME  Same as --name
-  BROWSEROS_MCP_DEBUG       Set to '1' for --debug
+  BROWSER_CONTROL_MCP_CDP_PORT     Same as --cdp-port
+  BROWSER_CONTROL_MCP_CDP_HOST     Same as --cdp-host
+  BROWSER_CONTROL_MCP_MCP_PORT     Same as --mcp-port
+  BROWSER_CONTROL_MCP_BACKEND      Same as --backend
+  BROWSER_CONTROL_MCP_CHROME_PATH  Same as --chrome-path
+  BROWSER_CONTROL_MCP_CHROME_USER_DATA_DIR
+                                    Same as --chrome-user-data-dir
+  BROWSER_CONTROL_MCP_CHROME_EXTENSION
+                                    Same as --chrome-extension
+  BROWSER_CONTROL_MCP_AUTO_LAUNCH  Set to '1' for --auto-launch
+  BROWSER_CONTROL_MCP_SERVER_NAME  Same as --name
+  BROWSER_CONTROL_MCP_DEBUG        Set to '1' for --debug
 
 Examples:
   # Connect to standard Chrome (started separately)
   chrome --remote-debugging-port=9222 &
-  browseros-mcp --backend chrome
+  browser-control-mcp --backend chrome
 
   # Connect to BrowserOS
-  browseros-mcp --backend browseros --cdp-port 9100
+  browser-control-mcp --backend browseros --cdp-port 9100
 
   # Auto-detect backend and auto-launch Chrome
-  browseros-mcp --auto-launch --backend auto
+  browser-control-mcp --auto-launch --backend auto
 
   # Use a specific Chrome path
-  browseros-mcp --auto-launch --chrome-path /usr/bin/chromium
+  browser-control-mcp --auto-launch --chrome-path /usr/bin/chromium
+
+  # Auto-launch Chrome with the bridge extension in an isolated profile
+  browser-control-mcp --auto-launch --backend chrome --chrome-user-data-dir .tmp/chrome-profile --chrome-extension D:\\work\\chrome-extension-bridge\\dist
 
   # Enable debug logging
-  browseros-mcp --debug
+  browser-control-mcp --debug
 `
 
 async function main(): Promise<void> {
@@ -59,6 +70,8 @@ async function main(): Promise<void> {
       'mcp-port': { type: 'string' },
       'backend': { type: 'string' },
       'chrome-path': { type: 'string' },
+      'chrome-user-data-dir': { type: 'string' },
+      'chrome-extension': { type: 'string' },
       'auto-launch': { type: 'boolean', default: false },
       'name': { type: 'string' },
       'title': { type: 'string' },
@@ -81,6 +94,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error(`[browseros-mcp] Fatal error: ${err instanceof Error ? err.message : String(err)}`)
+  console.error(`[browser-control-mcp] Fatal error: ${err instanceof Error ? err.message : String(err)}`)
   process.exit(1)
 })

@@ -54,7 +54,7 @@ export async function formatSnapshotResult(
       const saveError = error instanceof Error ? error.message : String(error)
       return {
         text: [
-          `Large snapshot (${tokenEstimate} estimated tokens, ${contentLength} chars) could not be saved to a BrowserOS output file: ${saveError}`,
+          `Large snapshot (${tokenEstimate} estimated tokens, ${contentLength} chars) could not be saved to a Browser Control MCP output file: ${saveError}`,
           `Showing the first ${MAX_INLINE_EXCERPT_TOKENS} estimated tokens instead:`,
           wrapUntrusted(excerpt, origin),
         ].join('\n'),

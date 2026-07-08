@@ -20,11 +20,15 @@ export interface ServerConfig {
   backend: BackendMode
   /** Chrome executable path (optional, for auto-launch) */
   chromePath?: string
+  /** Chrome user data directory (optional, for auto-launch) */
+  chromeUserDataDir?: string
+  /** Unpacked Chrome extension path to load (optional, for auto-launch) */
+  chromeExtensionPath?: string
   /** Whether to auto-launch Chrome (default: false) */
   autoLaunch: boolean
-  /** MCP server name (default: "browseros-mcp") */
+  /** MCP server name (default: "browser-control-mcp") */
   serverName: string
-  /** MCP server title (default: "BrowserOS MCP") */
+  /** MCP server title (default: "Browser Control MCP") */
   serverTitle: string
   /** MCP server version (default: "0.1.0") */
   serverVersion: string
@@ -48,8 +52,8 @@ export const DEFAULT_CONFIG: ServerConfig = {
   mcpPort: 3000,
   backend: 'auto',
   autoLaunch: false,
-  serverName: 'browseros-mcp',
-  serverTitle: 'BrowserOS MCP',
+  serverName: 'browser-control-mcp',
+  serverTitle: 'Browser Control MCP',
   serverVersion: '0.1.0',
   cdpMaxRetries: 10,
   cdpRetryDelay: 1000,
@@ -121,6 +125,8 @@ export function configFromArgs(args: Record<string, unknown>): Partial<ServerCon
   if (isPresent(args['mcp-port'])) config.mcpPort = parsePort(args['mcp-port'], '--mcp-port')
   if (isPresent(args['backend'])) config.backend = parseBackend(args['backend'], '--backend')
   if (isPresent(args['chrome-path'])) config.chromePath = String(args['chrome-path'])
+  if (isPresent(args['chrome-user-data-dir'])) config.chromeUserDataDir = String(args['chrome-user-data-dir'])
+  if (isPresent(args['chrome-extension'])) config.chromeExtensionPath = String(args['chrome-extension'])
   if (args['auto-launch']) config.autoLaunch = true
   if (isPresent(args['name'])) config.serverName = String(args['name'])
   if (isPresent(args['title'])) config.serverTitle = String(args['title'])
@@ -133,21 +139,37 @@ export function configFromArgs(args: Record<string, unknown>): Partial<ServerCon
 }
 
 /**
- * Parse environment variables (BROWSEROS_MCP_* prefix) into a partial ServerConfig.
+ * Parse environment variables into a partial ServerConfig.
  */
 export function configFromEnv(): Partial<ServerConfig> {
   const config: Partial<ServerConfig> = {}
   const env = process.env
 
-  if (env.BROWSEROS_MCP_CDP_PORT) config.cdpPort = parsePort(env.BROWSEROS_MCP_CDP_PORT, 'BROWSEROS_MCP_CDP_PORT')
-  if (env.BROWSEROS_MCP_CDP_HOST) config.cdpHost = env.BROWSEROS_MCP_CDP_HOST
-  if (env.BROWSEROS_MCP_MCP_PORT) config.mcpPort = parsePort(env.BROWSEROS_MCP_MCP_PORT, 'BROWSEROS_MCP_MCP_PORT')
-  if (env.BROWSEROS_MCP_BACKEND) config.backend = parseBackend(env.BROWSEROS_MCP_BACKEND, 'BROWSEROS_MCP_BACKEND')
-  if (env.BROWSEROS_MCP_CHROME_PATH) config.chromePath = env.BROWSEROS_MCP_CHROME_PATH
-  if (env.BROWSEROS_MCP_AUTO_LAUNCH === '1') config.autoLaunch = true
-  if (env.BROWSEROS_MCP_SERVER_NAME) config.serverName = env.BROWSEROS_MCP_SERVER_NAME
-  if (env.BROWSEROS_MCP_SERVER_VERSION) config.serverVersion = env.BROWSEROS_MCP_SERVER_VERSION
-  if (env.BROWSEROS_MCP_DEBUG === '1' || env.BROWSEROS_MCP_DEBUG === 'true') config.debug = true
+  const value = (name: string) => env[`BROWSER_CONTROL_MCP_${name}`]
+
+  const cdpPort = value('CDP_PORT')
+  const cdpHost = value('CDP_HOST')
+  const mcpPort = value('MCP_PORT')
+  const backend = value('BACKEND')
+  const chromePath = value('CHROME_PATH')
+  const chromeUserDataDir = value('CHROME_USER_DATA_DIR')
+  const chromeExtension = value('CHROME_EXTENSION')
+  const autoLaunch = value('AUTO_LAUNCH')
+  const serverName = value('SERVER_NAME')
+  const serverVersion = value('SERVER_VERSION')
+  const debug = value('DEBUG')
+
+  if (cdpPort) config.cdpPort = parsePort(cdpPort, 'BROWSER_CONTROL_MCP_CDP_PORT')
+  if (cdpHost) config.cdpHost = cdpHost
+  if (mcpPort) config.mcpPort = parsePort(mcpPort, 'BROWSER_CONTROL_MCP_MCP_PORT')
+  if (backend) config.backend = parseBackend(backend, 'BROWSER_CONTROL_MCP_BACKEND')
+  if (chromePath) config.chromePath = chromePath
+  if (chromeUserDataDir) config.chromeUserDataDir = chromeUserDataDir
+  if (chromeExtension) config.chromeExtensionPath = chromeExtension
+  if (autoLaunch === '1') config.autoLaunch = true
+  if (serverName) config.serverName = serverName
+  if (serverVersion) config.serverVersion = serverVersion
+  if (debug === '1' || debug === 'true') config.debug = true
 
   return config
 }

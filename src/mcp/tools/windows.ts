@@ -15,7 +15,6 @@ export const windows = defineTool({
   name: 'windows',
   description:
     'Manage browser windows: list windows, create visible or hidden windows, close or activate a window, and show or hide windows.',
-  backend: ['browseros'],
   input: z.object({
     action: z.enum(ACTIONS).default('list'),
     windowId: z

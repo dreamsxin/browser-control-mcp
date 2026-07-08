@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""HTTP service wrapper for the BrowserOS LangChain agent example.
+"""HTTP service wrapper for the Browser Control MCP LangChain agent example.
 
-Start the BrowserOS MCP server first, then run:
+Start the Browser Control MCP server first, then run:
 
     python example/browser_agent_service.py
 
@@ -510,7 +510,7 @@ def string_or_none(value: Any) -> str | None:
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run an HTTP wrapper around the BrowserOS LangChain agent example.",
+        description="Run an HTTP wrapper around the Browser Control MCP LangChain agent example.",
     )
     parser.add_argument(
         "--config",
@@ -532,8 +532,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def load_settings(args: argparse.Namespace) -> AgentServiceSettings:
     config = load_config(args.config)
-    args.mcp_url = config_value(args, config, "mcp_url", "BROWSEROS_MCP_URL")
-    args.model = config_value(args, config, "model", "OPENAI_MODEL", "gpt-4o-mini")
+    args.mcp_url = config_value(args, config, "mcp_url", "BROWSER_CONTROL_MCP_URL")
+    args.model = config_value(args, config, "model", "OPENAI_MODEL", default="gpt-4o-mini")
     args.base_url = config_value(args, config, "base_url", "OPENAI_BASE_URL")
     args.api_key = config_value(args, config, "api_key", "OPENAI_API_KEY")
     workspace_dir_raw = config_value(
@@ -541,7 +541,7 @@ def load_settings(args: argparse.Namespace) -> AgentServiceSettings:
         config,
         "workspace_dir",
         "BROWSER_AGENT_WORKSPACE_DIR",
-        str(DEFAULT_WORKSPACE_DIR),
+        default=str(DEFAULT_WORKSPACE_DIR),
     )
     args.workspace_dir = Path(str(workspace_dir_raw)).resolve()
     raw_temperature = config_value(
@@ -549,7 +549,7 @@ def load_settings(args: argparse.Namespace) -> AgentServiceSettings:
         config,
         "temperature",
         "OPENAI_TEMPERATURE",
-        0,
+        default=0,
     )
 
     try:

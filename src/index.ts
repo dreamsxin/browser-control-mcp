@@ -1,17 +1,17 @@
 /**
- * browseros-mcp — Standalone Browser Automation MCP Server
+ * browser-control-mcp — Standalone Browser Control MCP Server
  *
  * Supports both BrowserOS and standard Chrome via CDP.
  *
  * @example
  * ```ts
- * import { createHttpServer, resolveConfig } from 'browseros-mcp'
+ * import { createHttpServer, resolveConfig } from 'browser-control-mcp'
  *
  * const config = resolveConfig({ backend: 'auto', cdpPort: 9222, mcpPort: 3000 })
  * await createHttpServer(config)
  * ```
  *
- * @module browseros-mcp
+ * @module browser-control-mcp
  */
 
 export { createHttpServer } from './server.js'

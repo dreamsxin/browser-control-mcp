@@ -29,7 +29,6 @@ export const tab_groups = defineTool({
   name: 'tab_groups',
   description:
     'Manage tab groups: list groups, group pages, update a group (title/color/collapsed), ungroup pages, or close a group. Page ids come from the tabs tool.',
-  backend: ['browseros'],
   input: z.object({
     action: z
       .enum(['list', 'create', 'update', 'ungroup', 'close'])
@@ -95,9 +94,7 @@ export const tab_groups = defineTool({
 
     switch (args.action) {
       case 'list': {
-        const { groups } = (await ctx.session.cdp('Browser.getTabGroups')) as {
-          groups: TabGroup[]
-        }
+        const groups = await ctx.session.tabGroups.list()
         const resolved = await Promise.all(groups.map(withPages))
         const text = resolved.length
           ? resolved.map(formatGroup).join('\n')
@@ -120,18 +117,9 @@ export const tab_groups = defineTool({
           )
         }
         const tabIds = await toTabIds(args.pages)
-        const params = args.groupId
-          ? { groupId: args.groupId, tabIds }
-          : {
-              tabIds,
-              ...(args.title !== undefined && { title: args.title }),
-            }
-        const method = args.groupId
-          ? 'Browser.addTabsToGroup'
-          : 'Browser.createTabGroup'
-        const { group } = (await ctx.session.cdp(method, params)) as {
-          group: TabGroup
-        }
+        const group = args.groupId
+          ? await ctx.session.tabGroups.addTabsToGroup(args.groupId, tabIds)
+          : await ctx.session.tabGroups.create(tabIds, args.title)
         const resolved = await withPages(group)
         return textResult(`grouped into ${formatGroup(resolved)}`, {
           action: 'create',
@@ -152,12 +140,11 @@ export const tab_groups = defineTool({
             'tab_groups update: provide at least one of title, color, or collapsed.',
           )
         }
-        const { group } = (await ctx.session.cdp('Browser.updateTabGroup', {
-          groupId: args.groupId,
+        const group = await ctx.session.tabGroups.update(args.groupId, {
           ...(args.title !== undefined && { title: args.title }),
           ...(args.color !== undefined && { color: args.color }),
           ...(args.collapsed !== undefined && { collapsed: args.collapsed }),
-        })) as { group: TabGroup }
+        })
         const resolved = await withPages(group)
         return textResult(`updated ${formatGroup(resolved)}`, {
           action: 'update',
@@ -170,7 +157,7 @@ export const tab_groups = defineTool({
           return errorResult('tab_groups ungroup: pages is required.')
         }
         const tabIds = await toTabIds(args.pages)
-        await ctx.session.cdp('Browser.removeTabsFromGroup', { tabIds })
+        await ctx.session.tabGroups.removeTabsFromGroup(tabIds)
         return textResult(`ungrouped ${args.pages.length} page(s)`, {
           action: 'ungroup',
           pageIds: args.pages,
@@ -182,9 +169,7 @@ export const tab_groups = defineTool({
         if (!args.groupId) {
           return errorResult('tab_groups close: groupId is required.')
         }
-        await ctx.session.cdp('Browser.closeTabGroup', {
-          groupId: args.groupId,
-        })
+        await ctx.session.tabGroups.close(args.groupId)
         return textResult(`closed tab group ${args.groupId} and all its tabs`, {
           action: 'close',
           groupId: args.groupId,

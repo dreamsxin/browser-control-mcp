@@ -1,12 +1,19 @@
 import { randomUUID } from 'node:crypto'
-import type { ServerResponse } from 'node:http'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { StreamableHTTPTransport } from '@hono/mcp'
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { WebSocket, WebSocketServer } from 'ws'
 import { CdpConnectionImpl } from './cdp/connection-impl.js'
 import { BrowserSession } from './browser/session.js'
+import {
+  ChromeExtensionBridge,
+  type BridgeCommand,
+  type BridgeCommandResult,
+  type BridgeStateSnapshot,
+} from './browser/chrome-extension-bridge.js'
 import { createBrowserMcpServer } from './mcp/mcp-server.js'
 import { launchChrome } from './chrome-launch.js'
 import type { ServerConfig, BackendMode } from './config.js'
@@ -48,12 +55,15 @@ async function detectBackend(
  */
 export async function createHttpServer(config: ServerConfig): Promise<void> {
   const dbg = (...args: unknown[]) => {
-    if (config.debug) console.error('[browseros-mcp:debug]', ...args)
+    if (config.debug) console.error('[browser-control-mcp:debug]', ...args)
   }
 
   // 1. Optional: auto-launch Chrome
   if (config.autoLaunch) {
-    await launchChrome(config.cdpPort, config.chromePath)
+    await launchChrome(config.cdpPort, config.chromePath, {
+      ...(config.chromeUserDataDir && { userDataDir: config.chromeUserDataDir }),
+      ...(config.chromeExtensionPath && { extensionPath: config.chromeExtensionPath }),
+    })
   }
 
   // 2. Connect to CDP
@@ -65,28 +75,66 @@ export async function createHttpServer(config: ServerConfig): Promise<void> {
     fetchTimeout: config.cdpFetchTimeout,
   })
   await cdp.connect()
-  console.error(`[browseros-mcp] Connected to CDP on port ${config.cdpPort}`)
+  console.error(`[browser-control-mcp] Connected to CDP on port ${config.cdpPort}`)
   dbg(`CDP versionInfo:`, JSON.stringify(cdp.versionInfo, null, 2))
 
   // 3. Resolve backend mode (narrow to 'browseros' | 'chrome' — 'auto' is resolved here)
   let backend: 'browseros' | 'chrome'
   if (config.backend === 'auto') {
     backend = await detectBackend(cdp, cdp.versionInfo?.Browser)
-    console.error(`[browseros-mcp] Auto-detected backend: ${backend}`)
+    console.error(`[browser-control-mcp] Auto-detected backend: ${backend}`)
   } else {
     backend = config.backend
-    console.error(`[browseros-mcp] Backend mode: ${backend}`)
+    console.error(`[browser-control-mcp] Backend mode: ${backend}`)
   }
   dbg(`Browser: ${cdp.versionInfo?.Browser ?? 'unknown'}`)
   const browserStr = cdp.versionInfo?.Browser
   dbg(`Detection: ${browserStr?.toLowerCase().includes('browseros') ? 'BRANDING match' : 'CDP probe (Browser.getTabs)'}`)
 
+  const extensionBridge = new ChromeExtensionBridge()
+
   // 4. Create BrowserSession with backend mode
-  const session = new BrowserSession(cdp, { backend })
+  const session = new BrowserSession(cdp, {
+    backend,
+    chromeExtensionBridge: extensionBridge,
+  })
   dbg('BrowserSession created')
 
   // 5. HTTP server (Hono) — supports both Streamable HTTP and SSE transports
   const app = new Hono()
+
+  // ── Chrome extension bridge endpoints ────────────────────────────────
+  app.post('/extension/hello', async (c) => {
+    const body = await readJsonObject(c.req)
+    const browserId = typeof body.browserId === 'string' ? body.browserId : undefined
+    return c.json(extensionBridge.hello(browserId))
+  })
+
+  app.post('/extension/state', async (c) => {
+    const body = (await c.req.json()) as BridgeStateSnapshot
+    const health = extensionBridge.updateState(body)
+    return c.json(health)
+  })
+
+  app.get('/extension/health', (c) => c.json(extensionBridge.health()))
+
+  app.get('/extension/commands', async (c) => {
+    extensionBridge.heartbeat()
+    const timeoutParam = Number(new URL(c.req.url).searchParams.get('timeoutMs'))
+    const timeoutMs = Number.isFinite(timeoutParam)
+      ? Math.max(0, Math.min(timeoutParam, 25_000))
+      : 25_000
+    const command = await extensionBridge.pollCommand(timeoutMs)
+    if (!command) return c.json({ command: null })
+    return c.json({ command })
+  })
+
+  app.post('/extension/commands/:id/result', async (c) => {
+    const id = c.req.param('id')
+    const body = (await c.req.json()) as BridgeCommandResult
+    const accepted = extensionBridge.completeCommand(id, body)
+    return c.json({ accepted })
+  })
 
   // Factory: create a fresh McpServer (one transport per server instance)
   const createMcpServer = () => createBrowserMcpServer({
@@ -210,15 +258,17 @@ export async function createHttpServer(config: ServerConfig): Promise<void> {
       cdp: cdp.isConnected(),
       backend,
       browser: cdp.versionInfo?.Browser ?? 'unknown',
+      extensionBridge: extensionBridge.health(),
       sessions: { streamableHttp: httpSessions.size, sse: sseSessions.size },
     }),
   )
 
   // 6. Start listening
-  serve({ fetch: app.fetch, port: config.mcpPort }, (info) => {
-    console.error(`[browseros-mcp] MCP server listening on http://localhost:${info.port}`)
+  const nodeServer = serve({ fetch: app.fetch, port: config.mcpPort }, (info) => {
+    console.error(`[browser-control-mcp] MCP server listening on http://localhost:${info.port}`)
     console.error(`  Streamable HTTP:  http://localhost:${info.port}/mcp`)
     console.error(`  SSE:              http://localhost:${info.port}/sse`)
+    console.error(`  Extension WS:     ws://localhost:${info.port}/extension/ws`)
     console.error(`  Health check:     http://localhost:${info.port}/health`)
     if (config.debug) {
       console.error(`  Debug:            enabled`)
@@ -226,9 +276,12 @@ export async function createHttpServer(config: ServerConfig): Promise<void> {
       console.error(`  CDP:              ${config.cdpHost}:${config.cdpPort}`)
     }
   })
+  const extensionWsServer = setupExtensionWebSocket(nodeServer, extensionBridge, dbg)
 
   // 7. Graceful shutdown
   const shutdown = async () => {
+    extensionBridge.setCommandSender(undefined)
+    extensionWsServer.close()
     for (const { server, transport } of httpSessions.values()) {
       await transport.close()
       await server.close()
@@ -244,14 +297,126 @@ export async function createHttpServer(config: ServerConfig): Promise<void> {
   }
 
   process.on('SIGINT', async () => {
-    console.error('[browseros-mcp] Shutting down...')
+    console.error('[browser-control-mcp] Shutting down...')
     await shutdown()
     process.exit(0)
   })
 
   process.on('SIGTERM', async () => {
-    console.error('[browseros-mcp] Received SIGTERM, shutting down...')
+    console.error('[browser-control-mcp] Received SIGTERM, shutting down...')
     await shutdown()
     process.exit(0)
   })
+}
+
+async function readJsonObject(req: { json: () => Promise<unknown> }): Promise<Record<string, unknown>> {
+  try {
+    const body = await req.json()
+    if (typeof body === 'object' && body !== null) {
+      return body as Record<string, unknown>
+    }
+  } catch {
+    // Treat an empty or invalid hello body as anonymous.
+  }
+  return {}
+}
+
+function setupExtensionWebSocket(
+  nodeServer: ReturnType<typeof serve>,
+  bridge: ChromeExtensionBridge,
+  dbg: (...args: unknown[]) => void,
+): WebSocketServer {
+  const wss = new WebSocketServer({ noServer: true })
+  let activeSocket: WebSocket | null = null
+
+  nodeServer.on('upgrade', (request: IncomingMessage, socket, head) => {
+    const url = new URL(request.url ?? '/', 'http://localhost')
+    if (url.pathname !== '/extension/ws') return
+
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request)
+    })
+  })
+
+  wss.on('connection', (ws) => {
+    dbg('[extension-ws] connected')
+    if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
+      activeSocket.close(1000, 'replaced by a newer bridge connection')
+    }
+    activeSocket = ws
+
+    const send = (message: unknown): boolean => {
+      if (ws.readyState !== WebSocket.OPEN) return false
+      ws.send(JSON.stringify(message))
+      return true
+    }
+
+    bridge.setCommandSender((command: BridgeCommand) =>
+      send({ type: 'command', command }),
+    )
+
+    ws.on('message', (data) => {
+      try {
+        const message = JSON.parse(data.toString()) as Record<string, unknown>
+        const type = message.type
+        if (type === 'hello') {
+          const browserId = typeof message.browserId === 'string' ? message.browserId : undefined
+          send({ type: 'hello', health: bridge.hello(browserId) })
+          return
+        }
+        if (type === 'ping') {
+          const browserId = typeof message.browserId === 'string' ? message.browserId : undefined
+          send({ type: 'pong', health: bridge.heartbeat(browserId) })
+          return
+        }
+        if (type === 'state') {
+          const snapshot = isRecord(message.snapshot)
+            ? (message.snapshot as unknown as BridgeStateSnapshot)
+            : (message as unknown as BridgeStateSnapshot)
+          send({ type: 'health', health: bridge.updateState(snapshot) })
+          return
+        }
+        if (type === 'commandResult') {
+          const commandId = typeof message.commandId === 'string' ? message.commandId : ''
+          const result: BridgeCommandResult = {
+            ok: message.ok === true,
+            result: message.result,
+            error: typeof message.error === 'string' ? message.error : undefined,
+          }
+          send({
+            type: 'commandResultAck',
+            commandId,
+            accepted: bridge.completeCommand(commandId, result),
+          })
+          return
+        }
+        send({ type: 'error', error: `Unknown message type: ${String(type)}` })
+      } catch (error) {
+        send({
+          type: 'error',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    })
+
+    ws.on('close', () => {
+      dbg('[extension-ws] closed')
+      if (activeSocket === ws) {
+        activeSocket = null
+        bridge.setCommandSender(undefined)
+      }
+    })
+
+    ws.on('error', (error) => {
+      dbg('[extension-ws] error', error instanceof Error ? error.message : String(error))
+    })
+
+    send({ type: 'hello', health: bridge.heartbeat() })
+  })
+
+  return wss
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }

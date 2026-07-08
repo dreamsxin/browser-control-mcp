@@ -5,6 +5,7 @@ import {
   EXCLUDED_URL_PREFIXES,
   type SessionId,
 } from '../cdp/connection'
+import { bridgeInstallMessage, type BridgeTab, type ChromeExtensionBridge } from './chrome-extension-bridge'
 
 /**
  * Backend mode determines which CDP domains are used for tab/page management.
@@ -26,6 +27,7 @@ export interface PageInfo {
   isHidden: boolean
   windowId?: number
   index?: number
+  browserContextId?: string
   groupId?: string
 }
 
@@ -72,6 +74,7 @@ export class PageManager {
     private readonly cdp: CdpConnection,
     private readonly hooks: PageManagerHooks = {},
     private readonly backend: BackendMode = 'browseros',
+    private readonly bridge?: ChromeExtensionBridge,
   ) {
     this.connectionEpoch = cdp.connectionEpoch()
   }
@@ -131,22 +134,13 @@ export class PageManager {
     const seen = new Set<string>()
     for (const target of targets) {
       seen.add(target.targetId)
+      const bridgeTab = this.bridge?.getTabByTarget(target.targetId)
       const existing = this.findByTarget(target.targetId)
       if (existing) {
-        Object.assign(existing, { url: target.url, title: target.title })
+        Object.assign(existing, this.chromeTabInfo(target, existing.pageId, bridgeTab, existing))
       } else {
         const pageId = this.nextPageId++
-        const tab: TabInfo = {
-          targetId: target.targetId,
-          tabId: pageId, // synthetic tabId = pageId
-          url: target.url,
-          title: target.title,
-          isActive: false,
-          isLoading: false,
-          loadProgress: 1,
-          isPinned: false,
-          isHidden: false,
-        }
+        const tab = this.chromeTabInfo(target, pageId, bridgeTab)
         this.pages.set(pageId, { pageId, ...tab })
       }
     }
@@ -208,7 +202,13 @@ export class PageManager {
       return this.findByTarget(tab.targetId) ?? null
     }
 
-    // Standard Chrome: no "active tab" CDP command, return first page
+    if (this.bridge?.hasUsableState()) {
+      await this.list()
+      const active = [...this.pages.values()].find((page) => page.isActive)
+      if (active) return active
+    }
+
+    // Standard Chrome without the extension bridge: no "active tab" CDP command, return first page
     await this.list()
     const first = [...this.pages.values()][0]
     return first ?? null
@@ -266,11 +266,14 @@ export class PageManager {
       }
     }
 
-    // Standard Chrome: use Target.getTargets to find the target
+    // Standard Chrome: use Target.getTargets to find the target and merge bridge state when available
     const result = await this.cdp.Target.getTargets()
     const target = result.targetInfos.find((t) => t.targetId === info!.targetId)
     if (target) {
-      const updated: PageInfo = { ...info, url: target.url, title: target.title }
+      const updated: PageInfo = {
+        ...info,
+        ...this.chromeTabInfo(target, info.pageId, this.bridge?.getTabByTarget(target.targetId), info),
+      }
       this.pages.set(pageId, updated)
       return updated
     }
@@ -346,8 +349,27 @@ export class PageManager {
 
   private async newPageChrome(
     url: string,
-    opts?: { background?: boolean },
+    opts?: { background?: boolean; windowId?: number },
   ): Promise<number> {
+    if (this.bridge?.isConnected()) {
+      const tab = await this.bridge.createTab({
+        url,
+        background: opts?.background,
+        ...(opts?.windowId !== undefined && { windowId: opts.windowId }),
+      })
+      const pageId = this.nextPageId++
+      const targetId = tab.targetId
+      if (!targetId) {
+        await this.list()
+        const found = this.findByTab(tab.tabId)
+        if (found) return found.pageId
+        throw new Error('Extension created a tab, but no CDP targetId has been reported yet.')
+      }
+      const page = this.pageInfoFromBridgeTab(pageId, tab, targetId, url)
+      this.pages.set(pageId, page)
+      return pageId
+    }
+
     // Standard Chrome: Target.createTarget
     // Note: hidden/windowId/tabGroupId are not supported on standard Chrome
     const result = await this.cdp.Target.createTarget({ url })
@@ -410,6 +432,8 @@ export class PageManager {
 
     if (this.backend === 'browseros') {
       await this.cdp.Browser.closeTab({ tabId: info.tabId })
+    } else if (this.bridge?.isConnected()) {
+      await this.bridge.closeTab(info.tabId)
     } else {
       await this.cdp.Target.closeTarget({ targetId: info.targetId })
     }
@@ -439,11 +463,15 @@ export class PageManager {
       return this.updateFromTab(pageId, result.tab as TabInfo)
     }
 
-    // Standard Chrome: use Target.activateTarget (partial — no windowId/index)
+    // Standard Chrome: use the extension bridge when available, otherwise Target.activateTarget
     if (info.isHidden) info.isHidden = false
-    try {
-      await this.cdp.Target.activateTarget({ targetId: info.targetId })
-    } catch { /* some Chrome versions reject this for browser-level targets */ }
+    if (this.bridge?.isConnected()) {
+      await this.bridge.activateTab(info.tabId)
+    } else {
+      try {
+        await this.cdp.Target.activateTarget({ targetId: info.targetId })
+      } catch { /* some Chrome versions reject this for browser-level targets */ }
+    }
     this.pages.set(pageId, info)
     return info
   }
@@ -464,8 +492,11 @@ export class PageManager {
       return this.updateFromTab(pageId, result.tab as TabInfo)
     }
 
-    // Standard Chrome: no moveTab equivalent, return current info (no-op)
-    return info
+    if (!this.bridge?.isConnected()) {
+      throw new Error(bridgeInstallMessage())
+    }
+    const tab = await this.bridge.moveTab(info.tabId, opts)
+    return this.updateFromTab(pageId, this.tabInfoFromBridgeTab(tab, info.targetId, info.url))
   }
 
   detachSession(sessionId: SessionId): void {
@@ -554,5 +585,57 @@ export class PageManager {
     const updated: PageInfo = { ...info, ...tab, windowId: tab.windowId ?? info.windowId }
     this.pages.set(pageId, updated)
     return updated
+  }
+
+  private chromeTabInfo(
+    target: { targetId: string; url: string; title: string; browserContextId?: string },
+    pageId: number,
+    bridgeTab?: BridgeTab,
+    existing?: PageInfo,
+  ): TabInfo {
+    return {
+      targetId: target.targetId,
+      tabId: bridgeTab?.tabId ?? existing?.tabId ?? pageId,
+      url: bridgeTab?.url ?? target.url,
+      title: bridgeTab?.title ?? target.title,
+      isActive: bridgeTab?.active ?? existing?.isActive ?? false,
+      isLoading: bridgeTab?.status === 'loading',
+      loadProgress: bridgeTab?.status === 'loading' ? 0 : 1,
+      isPinned: bridgeTab?.pinned ?? existing?.isPinned ?? false,
+      isHidden: bridgeTab?.hidden ?? existing?.isHidden ?? false,
+      ...(bridgeTab?.windowId !== undefined && { windowId: bridgeTab.windowId }),
+      ...(bridgeTab?.index !== undefined && { index: bridgeTab.index }),
+      ...(bridgeTab?.groupId !== undefined && bridgeTab.groupId >= 0 && { groupId: String(bridgeTab.groupId) }),
+      ...(target.browserContextId !== undefined && { browserContextId: target.browserContextId }),
+    }
+  }
+
+  private pageInfoFromBridgeTab(
+    pageId: number,
+    tab: BridgeTab,
+    targetId: string,
+    fallbackUrl: string,
+  ): PageInfo {
+    return {
+      pageId,
+      ...this.tabInfoFromBridgeTab(tab, targetId, fallbackUrl),
+    }
+  }
+
+  private tabInfoFromBridgeTab(tab: BridgeTab, targetId: string, fallbackUrl: string): TabInfo {
+    return {
+      targetId,
+      tabId: tab.tabId,
+      url: tab.url ?? fallbackUrl,
+      title: tab.title ?? '',
+      isActive: tab.active ?? false,
+      isLoading: tab.status === 'loading',
+      loadProgress: tab.status === 'loading' ? 0 : 1,
+      isPinned: tab.pinned ?? false,
+      isHidden: tab.hidden ?? false,
+      windowId: tab.windowId,
+      index: tab.index,
+      ...(tab.groupId !== undefined && tab.groupId >= 0 && { groupId: String(tab.groupId) }),
+    }
   }
 }

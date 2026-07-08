@@ -1,5 +1,6 @@
 import type { WindowInfo } from '../cdp/generated/domains/browser'
 import type { CdpConnection } from '../cdp/connection'
+import { bridgeInstallMessage, type ChromeExtensionBridge } from './chrome-extension-bridge'
 import type { BackendMode } from './pages'
 
 export type { WindowInfo }
@@ -30,30 +31,45 @@ export class WindowManager {
   constructor(
     private readonly cdp: CdpConnection,
     private readonly backend: BackendMode = 'browseros',
+    private readonly bridge?: ChromeExtensionBridge,
   ) {}
 
   async list(): Promise<WindowInfo[]> {
-    if (this.backend === 'chrome') return []
+    if (this.backend === 'chrome') {
+      if (!this.bridge?.hasSnapshot()) throw new Error(bridgeInstallMessage())
+      return this.bridge.listWindows()
+    }
     await this.ensureConnected()
     const result = await this.cdp.Browser.getWindows()
     return result.windows as WindowInfo[]
   }
 
   async create(opts?: { hidden?: boolean }): Promise<WindowInfo> {
-    if (this.backend === 'chrome') throw UNSUPPORTED('create')
+    if (this.backend === 'chrome') {
+      if (!this.bridge?.isConnected()) throw new Error(bridgeInstallMessage())
+      return this.bridge.createWindow(opts)
+    }
     await this.ensureConnected()
     const result = await this.cdp.Browser.createWindow({ hidden: opts?.hidden ?? false })
     return result.window as WindowInfo
   }
 
   async close(windowId: number): Promise<void> {
-    if (this.backend === 'chrome') throw UNSUPPORTED('close')
+    if (this.backend === 'chrome') {
+      if (!this.bridge?.isConnected()) throw new Error(bridgeInstallMessage())
+      await this.bridge.closeWindow(windowId)
+      return
+    }
     await this.ensureConnected()
     await this.cdp.Browser.closeWindow({ windowId })
   }
 
   async activate(windowId: number): Promise<void> {
-    if (this.backend === 'chrome') throw UNSUPPORTED('activate')
+    if (this.backend === 'chrome') {
+      if (!this.bridge?.isConnected()) throw new Error(bridgeInstallMessage())
+      await this.bridge.activateWindow(windowId)
+      return
+    }
     await this.ensureConnected()
     await this.cdp.Browser.activateWindow({ windowId })
   }
@@ -62,7 +78,16 @@ export class WindowManager {
     windowId: number,
     opts: { visible: boolean; activate?: boolean },
   ): Promise<SetWindowVisibilityResult> {
-    if (this.backend === 'chrome') throw UNSUPPORTED('setVisibility')
+    if (this.backend === 'chrome') {
+      if (!this.bridge?.isConnected()) throw new Error(bridgeInstallMessage())
+      const window = await this.bridge.setWindowVisibility(windowId, opts)
+      return {
+        window,
+        replaced: false,
+        previousWindowId: windowId,
+        newWindowId: windowId,
+      }
+    }
     await this.ensureConnected()
     const result = await this.cdp.Browser.setWindowVisibility({
       windowId,

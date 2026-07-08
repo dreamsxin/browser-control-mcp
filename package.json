@@ -1,7 +1,7 @@
 {
-  "name": "browseros-mcp",
+  "name": "browser-control-mcp",
   "version": "0.1.0",
-  "description": "Standalone browser automation MCP server — supports both BrowserOS and standard Chrome",
+  "description": "Standalone browser control MCP server for Chrome and BrowserOS",
   "keywords": [
     "mcp",
     "browser-automation",
@@ -18,7 +18,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "browseros-mcp": "./dist/cli.js"
+    "browser-control-mcp": "./dist/cli.js"
   },
   "exports": {
     ".": {

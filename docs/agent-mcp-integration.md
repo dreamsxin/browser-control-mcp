@@ -350,7 +350,7 @@ When `useMcpBoundaryOnly` is true:
 **Current approach**: Chat mode filters to `readOnlyHint` tools + `tabs`; scheduled task removes nudge tools.
 
 **Recommendations**:
-- Use the `backend` field on `ToolDefinition` to filter by backend mode (already implemented in browseros-mcp). BrowserOS-only tools (`windows`, `tab_groups`) should not appear when running on standard Chrome.
+- Use the `backend` field on `ToolDefinition` to filter by backend mode (already implemented in browser-control-mcp). BrowserOS-only tools (`windows`, `tab_groups`) should not appear when running on standard Chrome.
 - Consider adding a `chatModeCompatible` or `readOnlyCompatible` flag to tool definitions instead of relying on `readOnlyHint` annotations. This would make the filtering more explicit.
 - For ACP providers, the spawned agent should also receive mode information (via MCP server config or instruction file) so it can self-filter tools.
 

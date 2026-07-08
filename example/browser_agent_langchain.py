@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LangChain browser agent smoke-test for the BrowserOS MCP server.
+"""LangChain browser agent smoke-test for the Browser Control MCP server.
 
 Install the Python dependencies in your environment:
 
@@ -441,7 +441,7 @@ def compact_mcp_tool_result(result: dict[str, Any], max_chars: int = 12000) -> s
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run a LangChain OpenAI-compatible browser agent against browseros-mcp.",
+        description="Run a LangChain OpenAI-compatible browser agent against browser-control-mcp.",
     )
     parser.add_argument(
         "prompt",
@@ -730,12 +730,12 @@ def config_value(
     args: argparse.Namespace,
     config: dict[str, Any],
     attr: str,
-    env_name: str,
+    *env_names: str,
     default: Any = None,
 ) -> Any:
     return first_value(
         getattr(args, attr),
-        os.getenv(env_name),
+        *(os.getenv(env_name) for env_name in env_names),
         config.get(attr),
         default,
     )
@@ -894,9 +894,9 @@ def main() -> int:
         args,
         config,
         "mcp_url",
-        "BROWSEROS_MCP_URL",
+        "BROWSER_CONTROL_MCP_URL",
     )
-    args.model = config_value(args, config, "model", "OPENAI_MODEL", "gpt-4o-mini")
+    args.model = config_value(args, config, "model", "OPENAI_MODEL", default="gpt-4o-mini")
     args.base_url = config_value(args, config, "base_url", "OPENAI_BASE_URL")
     args.api_key = config_value(args, config, "api_key", "OPENAI_API_KEY")
     workspace_dir_raw = config_value(
@@ -904,7 +904,7 @@ def main() -> int:
         config,
         "workspace_dir",
         "BROWSER_AGENT_WORKSPACE_DIR",
-        str(DEFAULT_WORKSPACE_DIR),
+        default=str(DEFAULT_WORKSPACE_DIR),
     )
     args.workspace_dir = Path(str(workspace_dir_raw)).resolve()
     raw_temperature = config_value(
@@ -912,7 +912,7 @@ def main() -> int:
         config,
         "temperature",
         "OPENAI_TEMPERATURE",
-        0,
+        default=0,
     )
     try:
         args.temperature = float(raw_temperature)

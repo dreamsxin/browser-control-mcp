@@ -1,4 +1,5 @@
 import type { CdpConnection } from '../cdp/connection'
+import type { ChromeExtensionBridge } from './chrome-extension-bridge'
 import { Input } from './core/input/input'
 import { Navigation } from './core/navigation'
 import { FrameRegistry } from './core/observer/frames'
@@ -10,6 +11,7 @@ import {
   type ScreenshotCaptureResult,
 } from './core/screenshot'
 import { WindowManager } from './windows'
+import { TabGroupManager } from './tab-groups'
 
 export interface BrowserSessionHooks extends PageManagerHooks {}
 
@@ -17,12 +19,14 @@ export interface BrowserSessionOptions {
   hooks?: BrowserSessionHooks
   /** Backend mode: 'browseros' (custom CDP domains) or 'chrome' (standard CDP) */
   backend?: BackendMode
+  chromeExtensionBridge?: ChromeExtensionBridge
 }
 
 /** Coordinates page registry, observation, input, navigation, and raw CDP access. */
 export class BrowserSession {
   readonly pages: PageManager
   readonly windows: WindowManager
+  readonly tabGroups: TabGroupManager
   private readonly frames: FrameRegistry
   private readonly observers = new Map<number, Observer>()
   readonly backend: BackendMode
@@ -31,10 +35,11 @@ export class BrowserSession {
     private readonly connection: CdpConnection,
     options: BrowserSessionOptions = {},
   ) {
-    const { hooks = {}, backend = 'browseros' } = options
+    const { hooks = {}, backend = 'browseros', chromeExtensionBridge } = options
     this.backend = backend
     this.frames = new FrameRegistry(connection)
-    this.windows = new WindowManager(connection, backend)
+    this.windows = new WindowManager(connection, backend, chromeExtensionBridge)
+    this.tabGroups = new TabGroupManager(connection, backend, chromeExtensionBridge)
     this.pages = new PageManager(
       connection,
       {
@@ -50,6 +55,7 @@ export class BrowserSession {
         },
       },
       backend,
+      chromeExtensionBridge,
     )
     this.connection.Target.on('detachedFromTarget', (params) => {
       if (params.sessionId) this.pages.detachSession(params.sessionId)

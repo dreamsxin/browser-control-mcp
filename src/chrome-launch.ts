@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { spawn } from 'node:child_process'
+import { resolve } from 'node:path'
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
@@ -23,6 +24,10 @@ const DEFAULT_CHROME_PATHS = [
 export async function launchChrome(
   cdpPort: number,
   chromePath?: string,
+  opts: {
+    userDataDir?: string
+    extensionPath?: string
+  } = {},
 ): Promise<void> {
   const exe =
     chromePath ??
@@ -34,15 +39,28 @@ export async function launchChrome(
     )
   }
 
-  console.error(`[browseros-mcp] Launching: ${exe} --remote-debugging-port=${cdpPort}`)
+  const args = [
+    `--remote-debugging-port=${cdpPort}`,
+    '--no-first-run',
+    '--no-default-browser-check',
+  ]
+
+  if (opts.userDataDir) {
+    args.push(`--user-data-dir=${resolve(opts.userDataDir)}`)
+  }
+
+  if (opts.extensionPath) {
+    const extensionPath = resolve(opts.extensionPath)
+    args.push(`--load-extension=${extensionPath}`)
+    args.push(`--disable-extensions-except=${extensionPath}`)
+    args.push('--enable-unsafe-extension-debugging')
+  }
+
+  console.error(`[browser-control-mcp] Launching: ${exe} ${args.join(' ')}`)
 
   const child = spawn(
     exe,
-    [
-      `--remote-debugging-port=${cdpPort}`,
-      '--no-first-run',
-      '--no-default-browser-check',
-    ],
+    args,
     { stdio: 'ignore', detached: true },
   )
   child.unref()
@@ -55,7 +73,7 @@ export async function launchChrome(
         signal: AbortSignal.timeout(2000),
       })
       if (res.ok) {
-        console.error('[browseros-mcp] Chrome CDP is ready')
+        console.error('[browser-control-mcp] Chrome CDP is ready')
         return
       }
     } catch {
