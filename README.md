@@ -12,6 +12,23 @@ Standalone browser control MCP server — supports **both BrowserOS and standard
 - **Auto-reconnect**: WebSocket connection with keepalive and automatic reconnection
 - **Auto-launch**: Optionally start Chrome/BrowserOS automatically
 
+## Documentation
+
+- [Documentation index](docs/README.md)
+- [Technical solution](docs/technical-solution.md)
+- [MCP tools reference](docs/mcp-tools-reference.md)
+- [BrowserSession contract](docs/browser-session-contract.md)
+- [Browser state model](docs/browser-state-model.md)
+- [Page observation contract](docs/page-observation-contract.md)
+- [Tool results and errors](docs/tool-result-and-errors.md)
+- [MCP transport](docs/mcp-transport.md)
+- [Backend adapter guide](docs/backend-adapter-guide.md)
+- [Chrome extension bridge protocol](docs/extension-mcp-protocol.md)
+- [Chrome extension implementation guide](docs/extension-implementation-guide.md)
+- [Conformance tests](docs/conformance-tests.md)
+- [Porting guide](docs/porting-guide.md)
+- [Security model](docs/security-model.md)
+
 ## Quick Start
 
 ```bash
@@ -99,6 +116,9 @@ Probes the connected browser's `/json/version` response:
 - Otherwise → `chrome` mode
 
 ## MCP Tools
+
+Detailed function and parameter documentation is available in
+[`docs/mcp-tools-reference.md`](docs/mcp-tools-reference.md).
 
 | Tool | Description | BrowserOS | Chrome |
 |------|-------------|-----------|--------|
