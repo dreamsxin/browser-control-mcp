@@ -1,4 +1,5 @@
 import type { BrowserSession } from '../../browser/session'
+import type { BrowserStateEvents } from '../../browser/state-events'
 import type { TypeOf, ZodObject, ZodRawShape } from 'zod'
 import {
   type ContentItem,
@@ -14,6 +15,7 @@ export type BackendMode = 'browseros' | 'chrome'
 
 export interface ToolContext {
   session: BrowserSession
+  browserState?: BrowserStateEvents
   defaultWindowId?: number
   defaultTabGroupId?: string
   signal?: AbortSignal

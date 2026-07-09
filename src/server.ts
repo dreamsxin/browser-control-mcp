@@ -9,6 +9,12 @@ import { WebSocket, WebSocketServer } from 'ws'
 import { CdpConnectionImpl } from './cdp/connection-impl.js'
 import { BrowserSession } from './browser/session.js'
 import {
+  BROWSER_STATE_RESOURCE_URI,
+  BrowserStateEvents,
+  type BrowserStateEvent,
+  type BrowserStateEventReason,
+} from './browser/state-events.js'
+import {
   ChromeExtensionBridge,
   type BridgeCommand,
   type BridgeCommandResult,
@@ -98,7 +104,34 @@ export async function createHttpServer(config: ServerConfig): Promise<void> {
     backend,
     chromeExtensionBridge: extensionBridge,
   })
+  const browserState = new BrowserStateEvents()
   dbg('BrowserSession created')
+
+  let pendingStateReason: BrowserStateEventReason | null = null
+  let stateBroadcastTimer: ReturnType<typeof setTimeout> | null = null
+  const scheduleStateBroadcast = (reason: BrowserStateEventReason) => {
+    pendingStateReason = reason
+    if (stateBroadcastTimer) return
+    stateBroadcastTimer = setTimeout(() => {
+      stateBroadcastTimer = null
+      const emitReason = pendingStateReason ?? reason
+      pendingStateReason = null
+      browserState.emitSnapshot(emitReason, session)
+        .then((event) => broadcastBrowserStateEvent(event))
+        .catch((error) => dbg('[browser-state] emit failed', error instanceof Error ? error.message : String(error)))
+    }, 100)
+  }
+
+  await cdp.Target.setDiscoverTargets({ discover: true }).catch((error) => {
+    dbg('[browser-state] Target.setDiscoverTargets failed', error instanceof Error ? error.message : String(error))
+  })
+  cdp.Target.on('targetCreated', (event) => {
+    if (event.targetInfo.type === 'page') scheduleStateBroadcast('tabs')
+  })
+  cdp.Target.on('targetDestroyed', () => scheduleStateBroadcast('tabs'))
+  cdp.Target.on('targetInfoChanged', (event) => {
+    if (event.targetInfo.type === 'page') scheduleStateBroadcast('tabs')
+  })
 
   // 5. HTTP server (Hono) — supports both Streamable HTTP and SSE transports
   const app = new Hono()
@@ -113,6 +146,7 @@ export async function createHttpServer(config: ServerConfig): Promise<void> {
   app.post('/extension/state', async (c) => {
     const body = (await c.req.json()) as BridgeStateSnapshot
     const health = extensionBridge.updateState(body)
+    scheduleStateBroadcast('extension')
     return c.json(health)
   })
 
@@ -142,13 +176,48 @@ export async function createHttpServer(config: ServerConfig): Promise<void> {
     title: config.serverTitle,
     version: config.serverVersion,
     browserSession: session,
+    browserState,
     ...(config.defaultWindowId !== undefined && { defaultWindowId: config.defaultWindowId }),
     ...(config.defaultTabGroupId !== undefined && { defaultTabGroupId: config.defaultTabGroupId }),
+    registration: {
+      browserState,
+      onToolExecuted: (event) => {
+        if (!event.success) return
+        if (['tabs', 'windows', 'tab_groups'].includes(event.tool_name)) {
+          scheduleStateBroadcast(
+            event.tool_name === 'tabs'
+              ? 'tabs'
+              : event.tool_name === 'windows'
+                ? 'windows'
+                : 'tabGroups',
+          )
+        }
+      },
+    },
   })
 
   // ── Streamable HTTP transport (/mcp) ──────────────────────────────────
   // Multi-session support: each client gets its own McpServer + transport pair.
   const httpSessions = new Map<string, { server: McpServer; transport: StreamableHTTPTransport }>()
+  const sseSessions = new Map<string, { server: McpServer; transport: SSEServerTransport }>()
+  const broadcastBrowserStateEvent = async (event: BrowserStateEvent): Promise<void> => {
+    const servers = [
+      ...[...httpSessions.values()].map((entry) => entry.server),
+      ...[...sseSessions.values()].map((entry) => entry.server),
+    ]
+    await Promise.allSettled(
+      servers.map(async (server) => {
+        await Promise.allSettled([
+          server.server.sendResourceUpdated({ uri: BROWSER_STATE_RESOURCE_URI }),
+          server.sendLoggingMessage({
+            level: 'info',
+            logger: 'browser-state',
+            data: event,
+          }),
+        ])
+      }),
+    )
+  }
 
   app.all('/mcp', async (c) => {
     const sessionId = c.req.header('mcp-session-id')
@@ -216,8 +285,6 @@ export async function createHttpServer(config: ServerConfig): Promise<void> {
   // ── Legacy SSE transport (/sse + /messages) ──────────────────────────
   // The MCP Inspector's "SSE" mode uses this transport.
   // Flow: GET /sse opens stream → POST /messages?sessionId=xxx sends messages.
-  const sseSessions = new Map<string, { server: McpServer; transport: SSEServerTransport }>()
-
   app.get('/sse', async (c) => {
     const outgoing = (c.env as { outgoing: ServerResponse }).outgoing
     dbg('[sse] New SSE connection')
@@ -299,7 +366,12 @@ export async function createHttpServer(config: ServerConfig): Promise<void> {
       console.error(`  CDP:              ${config.cdpHost}:${config.cdpPort}`)
     }
   })
-  const extensionWsServer = setupExtensionWebSocket(nodeServer, extensionBridge, dbg)
+  const extensionWsServer = setupExtensionWebSocket(
+    nodeServer,
+    extensionBridge,
+    dbg,
+    () => scheduleStateBroadcast('extension'),
+  )
 
   // 7. Graceful shutdown
   const shutdown = async () => {
@@ -348,6 +420,7 @@ function setupExtensionWebSocket(
   nodeServer: ReturnType<typeof serve>,
   bridge: ChromeExtensionBridge,
   dbg: (...args: unknown[]) => void,
+  onStateChanged?: () => void,
 ): WebSocketServer {
   const wss = new WebSocketServer({ noServer: true })
   let activeSocket: WebSocket | null = null
@@ -397,6 +470,7 @@ function setupExtensionWebSocket(
             ? (message.snapshot as unknown as BridgeStateSnapshot)
             : (message as unknown as BridgeStateSnapshot)
           send({ type: 'health', health: bridge.updateState(snapshot) })
+          onStateChanged?.()
           return
         }
         if (type === 'commandResult') {

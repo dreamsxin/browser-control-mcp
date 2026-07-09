@@ -1,5 +1,6 @@
 import { act } from './act'
 import { bookmarks } from './bookmarks'
+import { browser_state } from './browser-state'
 import { diff } from './diff'
 import { download } from './download'
 import { evaluate } from './evaluate'
@@ -19,6 +20,7 @@ import { wait } from './wait'
 import { windows } from './windows'
 
 export const BROWSER_TOOLS: readonly ToolDefinition[] = [
+  browser_state,
   tabs,
   bookmarks,
   history,

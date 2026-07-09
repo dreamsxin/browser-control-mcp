@@ -1,4 +1,5 @@
 import type { BrowserSession } from '../../browser/session'
+import type { BrowserStateEvents } from '../../browser/state-events'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ZodRawShape } from 'zod'
 import { executeTool, type BackendMode } from './framework'
@@ -37,6 +38,7 @@ interface BrowserToolLogger {
 }
 
 export interface BrowserToolRegistrationOptions {
+  browserState?: BrowserStateEvents
   outputFileAccess?: BrowserOutputFileAccess
   onToolExecuted?: (event: BrowserToolExecutionEvent) => void
   shouldLogToolRegistration?: () => boolean
@@ -159,6 +161,7 @@ export function registerBrowserTools(
             () =>
               executeTool(tool, args, {
                 session,
+                ...(options.browserState && { browserState: options.browserState }),
                 ...defaults,
                 signal: extra?.signal,
               }),

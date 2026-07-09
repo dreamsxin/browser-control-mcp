@@ -1,6 +1,8 @@
 export const BROWSER_MCP_INSTRUCTIONS = `Browser Control MCP browser automation.
 
 Core loop:
+- Use browser_state action="get" when you need the full browser space model: windows, tabs, tab groups, active page, and state sequence.
+- Use browser_state action="wait" after a known seq when you need to wait for tab/window/group changes caused outside the current tool call.
 - Use tabs action="list" first when you need a page id; use tabs action="active" when the user refers to the current page.
 - Use tabs action="active" to query the current foreground page; use tabs action="activate" only when the user asks to switch focus to a specific page.
 - Use tabs move, duplicate, pin, and unpin to organize the current browser's tab strip.

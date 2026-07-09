@@ -4,7 +4,7 @@ Standalone browser control MCP server — supports **both BrowserOS and standard
 
 ## Features
 
-- **18 MCP tools**: tabs, bookmarks, history, tab_groups, navigate, snapshot, diff, act, download, upload, read, grep, screenshot, pdf, wait, windows, evaluate, run
+- **19 MCP tools**: browser_state, tabs, bookmarks, history, tab_groups, navigate, snapshot, diff, act, download, upload, read, grep, screenshot, pdf, wait, windows, evaluate, run
 - **Dual backend**: Works with both BrowserOS (custom CDP domains) and standard Chrome (Target.* CDP domain), with an optional Chrome extension bridge for full tab/window/group state
 - **Auto-detection**: Probes the connected browser to determine if it's BrowserOS or standard Chrome
 - **Accessibility Tree first**: Uses AX tree snapshots with `[ref=eN]` stable handles instead of CSS selectors
@@ -64,13 +64,13 @@ Uses BrowserOS custom CDP domains:
 - `Browser.getWindows`, `Browser.createWindow` — window management
 - `Browser.getTabGroups`, `Browser.createTabGroup` — tab group management
 
-All 18 tools are fully functional.
+All 19 tools are fully functional.
 
 ### `chrome` mode
 Uses standard Chrome CDP domains:
 - `Target.getTargets`, `Target.createTarget`, `Target.closeTarget` — tab management
 - `tab_groups` and `windows` require the optional Chrome Extension Bridge because native Chrome CDP does not expose the full browser UI model
-- 16 out of 18 tools are fully functional
+- Core page tools and `browser_state` work in standard Chrome; `windows`, `tab_groups`, `bookmarks`, and `history` require the optional Chrome Extension Bridge for full Chrome support
 
 With the bridge extension built and loaded from
 `D:\work\chrome-extension-bridge\dist`, Chrome mode can use real `tabId`,
@@ -102,6 +102,7 @@ Probes the connected browser's `/json/version` response:
 
 | Tool | Description | BrowserOS | Chrome |
 |------|-------------|-----------|--------|
+| `browser_state` | Read or wait for the unified browser space model | ✅ Full | ✅ Adapted |
 | `tabs` | List, create, close, activate tabs | ✅ Full | ✅ Adapted |
 | `tab_groups` | Manage tab groups | ✅ Full | ✅ With bridge |
 | `navigate` | Navigate to URL, back, forward, reload | ✅ | ✅ |
@@ -359,7 +360,7 @@ flowchart TD
 │                 /mcp + /mcp/stateless                     │
 ├─────────────────────────────────────────────────────────┤
 │                  MCP Tool Layer                           │
-│            18 tools (framework + registry)               │
+│            19 tools (framework + registry)               │
 │          ToolContext { session, signal }                 │
 ├─────────────────────────────────────────────────────────┤
 │                BrowserSession                             │

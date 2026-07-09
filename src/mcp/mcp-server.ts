@@ -1,4 +1,8 @@
 import type { BrowserSession } from '../browser/session'
+import {
+  BROWSER_STATE_RESOURCE_URI,
+  type BrowserStateEvents,
+} from '../browser/state-events'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
@@ -20,6 +24,7 @@ export interface BrowserMcpServerOptions extends BrowserToolDefaults {
   title: string
   version: string
   browserSession: BrowserSession
+  browserState?: BrowserStateEvents
   instructions?: string
   registration?: BrowserToolRegistrationOptions
 }
@@ -35,7 +40,7 @@ export function createBrowserMcpServer(
       version: options.version,
     },
     {
-      capabilities: { logging: {} },
+      capabilities: { logging: {}, resources: { subscribe: true, listChanged: true } },
       instructions: options.instructions ?? BROWSER_MCP_INSTRUCTIONS,
     },
   )
@@ -70,6 +75,30 @@ export function createBrowserMcpServer(
     }),
   )
 
+  if (options.browserState) {
+    server.registerResource(
+      'browser-state',
+      BROWSER_STATE_RESOURCE_URI,
+      {
+        title: 'Browser state',
+        description: 'Unified browser window, tab, tab group, active page, and state sequence snapshot.',
+        mimeType: 'application/json',
+      },
+      async () => {
+        const snapshot = await options.browserState!.snapshot(options.browserSession)
+        return {
+          contents: [
+            {
+              uri: BROWSER_STATE_RESOURCE_URI,
+              mimeType: 'application/json',
+              text: JSON.stringify(snapshot, null, 2),
+            },
+          ],
+        }
+      },
+    )
+  }
+
   registerBrowserTools(
     server,
     options.browserSession,
@@ -77,7 +106,12 @@ export function createBrowserMcpServer(
       defaultWindowId: options.defaultWindowId,
       defaultTabGroupId: options.defaultTabGroupId,
     },
-    options.registration,
+    options.browserState
+      ? {
+          ...options.registration,
+          browserState: options.browserState,
+        }
+      : options.registration,
     options.browserSession.backend,
   )
 

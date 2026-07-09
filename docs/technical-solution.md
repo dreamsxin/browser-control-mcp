@@ -92,7 +92,7 @@ flowchart TD
 | BookmarkManager | `src/browser/bookmarks.ts` | 统一书签管理能力 |
 | HistoryManager | `src/browser/history.ts` | 统一历史记录管理能力 |
 | Extension Bridge Store | `src/browser/chrome-extension-bridge.ts` | 保存扩展快照、命令队列、状态健康信息 |
-| Tool Registry | `src/mcp/tools/registry.ts` | 注册 18 个 MCP tools |
+| Tool Registry | `src/mcp/tools/registry.ts` | 注册 19 个 MCP tools |
 | MCP Prompt | `src/mcp/mcp-prompt.ts` | 提供 LLM 使用浏览器工具的系统提示 |
 
 ## 6. MCP 传输层
@@ -337,10 +337,11 @@ interface BridgeCommandResult {
 
 ## 10. MCP 工具层
 
-当前共有 18 个工具：
+当前共有 19 个工具：
 
 | 工具 | 能力 |
 | --- | --- |
+| `browser_state` | get、wait；读取统一浏览器空间模型并等待状态变化 |
 | `tabs` | list、active、new、close、activate、move、duplicate、pin、unpin |
 | `bookmarks` | list、search、create、update、move、delete、open |
 | `history` | recent、search、open、delete_url、delete_range |
@@ -540,8 +541,9 @@ npm run build -- --port 3100
 
 ### 16.2 MCP 工具发现
 
-通过 `/mcp` 初始化并调用 `tools/list`，应看到 18 个工具：
+通过 `/mcp` 初始化并调用 `tools/list`，应看到 19 个工具：
 
+- browser_state
 - tabs
 - bookmarks
 - history

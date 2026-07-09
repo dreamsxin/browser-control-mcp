@@ -69,6 +69,33 @@ export const tabGroupWithPagesSchema = z.object({
   pageIds: z.array(z.number().int()),
 })
 
+export const browserStateEventSchema = z.object({
+  type: z.literal('browser.state.changed'),
+  seq: z.number().int(),
+  reason: z.string(),
+  changedAt: z.string(),
+  summary: z.object({
+    tabCount: z.number().int(),
+    windowCount: z.number().int().optional(),
+    tabGroupCount: z.number().int().optional(),
+    activePage: z.number().int().optional(),
+    activeTabId: z.number().int().optional(),
+    activeWindowId: z.number().int().optional(),
+  }),
+})
+
+export const browserStateSnapshotSchema = z.object({
+  seq: z.number().int(),
+  capturedAt: z.string(),
+  backend: z.enum(['browseros', 'chrome']),
+  summary: browserStateEventSchema.shape.summary,
+  pages: z.array(pageInfoSchema),
+  windows: z.array(windowInfoSchema),
+  tabGroups: z.array(tabGroupWithPagesSchema.extend({
+    tabIds: z.array(z.number().int()),
+  })),
+})
+
 export const screenshotAnnotationBoxSchema = z.object({
   x: z.number(),
   y: z.number(),
