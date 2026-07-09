@@ -85,6 +85,7 @@ export const act = defineTool({
     beforeUrl: z.string().optional(),
     afterUrl: z.string().optional(),
   }),
+  annotations: { openWorldHint: true },
   handler: async (args, ctx, response) => {
     const input = ctx.session.input(args.page)
 

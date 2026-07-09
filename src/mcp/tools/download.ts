@@ -23,6 +23,7 @@ export const download = defineTool({
     path: z.string(),
     filename: z.string(),
   }),
+  annotations: { openWorldHint: true },
   handler: async (args, ctx) => {
     const { session } = await ctx.session.pages.getSession(args.page)
     // A fresh subdir avoids Chromium filename uniquifying on repeated downloads.

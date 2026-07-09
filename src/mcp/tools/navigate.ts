@@ -15,6 +15,7 @@ export const navigate = defineTool({
     page: z.number().int(),
     url: z.string(),
   }),
+  annotations: { openWorldHint: true },
   handler: async (args, ctx, response) => {
     const nav = ctx.session.nav(args.page)
     switch (args.action) {

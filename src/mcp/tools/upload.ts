@@ -22,6 +22,7 @@ export const upload = defineTool({
     files: z.array(z.string()),
     uploaded: z.number().int(),
   }),
+  annotations: { openWorldHint: true },
   handler: async (args, ctx) => {
     const files = args.files ?? (args.file === undefined ? [] : [args.file])
     if (files.length === 0) {
